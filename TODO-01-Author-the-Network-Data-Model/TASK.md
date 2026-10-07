@@ -119,20 +119,6 @@ Don't edit `grading.py`.
 ---
 
 <details>
-<summary><strong>Before You Start</strong></summary>
-
-```
-pip install -r requirements.txt
-nac-validate --version
-```
-
-If your lab is offline, follow OFFLINE-SETUP.md in the course root first.
-
-</details>
-
----
-
-<details>
 <summary><strong>Run the grader</strong></summary>
 
 ```
