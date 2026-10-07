@@ -62,6 +62,16 @@ Skeletons in the Steps section use one kind of blank:
 
 Everything else in a skeleton is already filled in and must stay as it is.
 
+## Working Folder
+
+Do everything for this TODO from its own folder. Open a terminal and run:
+
+```
+cd ~/Production-Grade-NaC_IOS-XE/TODO-05-Connect-the-Data-Model-to-Terraform
+```
+
+Change the path if you put the course folder somewhere else.
+
 ## Steps
 
 ```

@@ -191,6 +191,16 @@ iosxe:
 
 `devices` is a list, so each device starts with `- `. `loopbacks` is a list too, because a router can have several. Indent with 2 spaces. Tabs break YAML, and one wrong indent changes what the file means.
 
+## Working Folder
+
+Do everything for this TODO from its own folder. Open a terminal and run:
+
+```
+cd ~/Production-Grade-NaC_IOS-XE/TODO-01-Author-the-Network-Data-Model
+```
+
+Change the path if you put the course folder somewhere else.
+
 ## Steps
 
 ```

@@ -62,6 +62,16 @@ The skeletons in the Steps section use one kind of blank:
 
 Everything else in a skeleton is already filled in. Leave it alone.
 
+## Working Folder
+
+Do everything for this TODO from its own folder. Open a terminal and run:
+
+```
+cd ~/Production-Grade-NaC_IOS-XE/TODO-04-Enforce-Business-Rules
+```
+
+Change the path if you put the course folder somewhere else.
+
 ## Steps
 
 ```

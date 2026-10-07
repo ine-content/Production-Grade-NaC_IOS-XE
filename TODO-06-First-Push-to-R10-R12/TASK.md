@@ -59,6 +59,16 @@ Skeletons in the Steps section use one kind of blank:
 
 Everything else in a skeleton is already filled in and must stay as it is.
 
+## Working Folder
+
+Do everything for this TODO from its own folder. Open a terminal and run:
+
+```
+cd ~/Production-Grade-NaC_IOS-XE/TODO-06-First-Push-to-R10-R12
+```
+
+Change the path if you put the course folder somewhere else.
+
 ## Steps
 
 Each step says where to run its commands. LAB MACHINE means a normal terminal on the lab machine, in this folder. ROUTER means the router's own command line (SSH or console).

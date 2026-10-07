@@ -70,6 +70,16 @@ All three routers share these settings:
 | ip_domain_name   | meridian.local |
 | ip_domain_lookup | false          |
 
+## Working Folder
+
+Do everything for this TODO from its own folder. Open a terminal and run:
+
+```
+cd ~/Production-Grade-NaC_IOS-XE/TODO-02-Layer-Shared-Settings-Across-Files
+```
+
+Change the path if you put the course folder somewhere else.
+
 ## Steps
 
 ```
@@ -96,7 +106,7 @@ echo $?
 cat merged.yaml
 ```
 
-The exit code should be `0`. In `merged.yaml`, each router should show its own `host`, `hostname` and loopback together with `ip_routing: true`, `ip_domain_name: meridian.local` and `ip_domain_lookup: false`. 
+The exit code should be `0`. In `merged.yaml`, each router should show its own `host`, `hostname` and loopback together with `ip_routing: true`, `ip_domain_name: meridian.local` and `ip_domain_lookup: false`.
 
 The key order doesn't matter. What matters is that all of it ended up under one device.
 
