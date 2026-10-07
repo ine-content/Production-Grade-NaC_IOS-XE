@@ -108,11 +108,7 @@ Everything else in a skeleton is already filled in. Leave it alone.
        address: ...
        address_mask: ...
 
-3. Try it yourself:   nac-validate data -s .schema.yaml
-   Then break something on purpose (a bad IP, a typo) and run it again.
-   Check the exit code with:   echo $?
-
-4. Save, then run: python grading.py
+3. Save, then run: python grading.py
 ```
 
 ## Test It Yourself (without the grader)
