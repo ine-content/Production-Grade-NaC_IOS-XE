@@ -62,3 +62,5 @@ python grading.py
 ```
 
 If your lab is offline, read `OFFLINE-SETUP.md` first.
+
+From TODO 05 on, the commands need Terraform and the local provider mirror. Both come from `. prep/env.sh`. If your lab doesn't load it for you, run it once in every new terminal, from the course folder.

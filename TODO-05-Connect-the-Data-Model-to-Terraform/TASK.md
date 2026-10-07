@@ -52,7 +52,6 @@ module "lab_vpn" {
 | File to create | `main.tf` |
 
 If your machine has internet and you didn't download the bundle, the module is also on the Terraform registry as `netascode/nac-iosxe/iosxe`, version `1.0.0`. Either source passes the check.
-
 ## Notation Used Below
 
 Skeletons in the Steps section use one kind of blank:
@@ -66,14 +65,7 @@ Everything else in a skeleton is already filled in and must stay as it is.
 ## Steps
 
 ```
-1. Open a terminal in the course folder and load the lab environment:
-
-     . prep/env.sh
-
-   Then change into this TODO's folder. env.sh puts Terraform on your PATH
-   and tells it to read providers from the local mirror.
-
-2. Create main.tf in this folder. Fill in each ... below:
+1. Create main.tf in this folder. Fill in each ... below:
 
      terraform {
        required_version = "..."
@@ -90,13 +82,13 @@ Everything else in a skeleton is already filled in and must stay as it is.
      The module reads every .yaml and .yml file in it, subfolders
      included, and merges them.
 
-3. Don't add a provider block, a host, a username or a password. The
+2. Don't add a provider block, a host, a username or a password. The
    module and the environment variables take care of all three.
 
-4. Run:  terraform init
+3. Run:  terraform init
           terraform validate
 
-5. Run: python grading.py
+4. Run: python grading.py
 ```
 
 ## Test It Yourself (without the grader)
