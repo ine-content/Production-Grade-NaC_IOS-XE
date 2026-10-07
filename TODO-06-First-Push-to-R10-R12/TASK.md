@@ -80,7 +80,18 @@ Each step says where to run its commands. LAB MACHINE means a normal terminal on
      copy running-config flash:before-terraform.cfg
 
    Press Enter to accept the file name. If the router doesn't accept
-   flash:, use bootflash: instead. Then look at the starting point:
+   flash:, use bootflash: instead. Then check that the file is there and
+   holds the starting point:
+
+     dir flash:before-terraform.cfg
+     more flash:before-terraform.cfg | include hostname|domain
+     more flash:before-terraform.cfg | include Loopback0
+
+   The first command lists the file with a size above zero. The second
+   shows hostname R12 and no ip domain name yet. The third prints
+   nothing, because Loopback0 doesn't exist before Terraform creates it.
+
+   Also look at the live state, so you have it to compare in step 7:
 
      show running-config | include hostname|domain
      show running-config interface Loopback0
