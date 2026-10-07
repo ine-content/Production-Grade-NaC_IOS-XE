@@ -93,7 +93,7 @@ Everything else in a skeleton is already filled in and must stay as it is.
 
 ## Test It Yourself (without the grader)
 
-Run these from inside this folder, after `. ../prep/env.sh` in your terminal:
+Run these from inside this folder:
 
 ```
 terraform version
