@@ -61,8 +61,11 @@ Everything else in a skeleton is already filled in and must stay as it is.
 
 ## Steps
 
+Each step says where to run its commands. LAB MACHINE means a normal terminal on the lab machine, in this folder. ROUTER means the router's own command line (SSH or console).
+
 ```
-1. Check that each router answers on the NETCONF port:
+1. [LAB MACHINE] In your terminal, check that each router answers on the
+   NETCONF port. Paste all three lines at once:
 
      for ip in 10.10.10.10 10.10.10.11 10.10.10.12; do
        timeout 3 bash -c "echo > /dev/tcp/$ip/830" && echo "$ip open" || echo "$ip CLOSED"
@@ -71,8 +74,8 @@ Everything else in a skeleton is already filled in and must stay as it is.
    All three must say open. If one says CLOSED, NETCONF is not turned on
    there yet. The Router setup section of the course README shows how.
 
-2. Take a snapshot of R12's configuration on the router itself, so you can
-   compare and roll back later. On R12 run:
+2. [ROUTER R12] Take a snapshot of R12's configuration on the router
+   itself, so you can compare and roll back later:
 
      copy running-config flash:before-terraform.cfg
 
@@ -83,8 +86,9 @@ Everything else in a skeleton is already filled in and must stay as it is.
      show running-config interface Loopback0
      show ip interface brief
 
-3. Give Terraform the router login. Do this in the terminal where you'll
-   run everything from here on, because the grader needs the same variables:
+3. [LAB MACHINE] Give Terraform the router login. Do this in the terminal
+   where you'll run everything from here on, because the grader needs the
+   same variables:
 
      export IOSXE_USERNAME=<your username>
      read -s IOSXE_PASSWORD; export IOSXE_PASSWORD
@@ -92,25 +96,25 @@ Everything else in a skeleton is already filled in and must stay as it is.
    After the second command, type the password and press Enter. Nothing is
    shown on screen, and it stays out of your shell history and your files.
 
-4. Limit the module to the staging router. In the module block of main.tf,
-   add one line:
+4. [LAB MACHINE] Limit the module to the staging router. In the module
+   block of main.tf, add one line:
 
      managed_devices = [...]
 
    Put R12 in the list, and only R12.
 
-5. Run:  terraform init
-          terraform plan
+5. [LAB MACHINE] Run:  terraform init
+                       terraform plan
 
    Read the plan. Only R12 should show anything. Expect a Loopback0 to be
    added and a domain name set. If R10 or R11 appear, stop and check the
    line from step 4.
 
-6. Run:  terraform apply
+6. [LAB MACHINE] Run:  terraform apply
 
    Look through the plan once more and type yes.
 
-7. On R12, compare the snapshot with what the router has now:
+7. [ROUTER R12] Compare the snapshot with what the router has now:
 
      show archive config differences flash:before-terraform.cfg system:running-config
 
@@ -119,17 +123,20 @@ Everything else in a skeleton is already filled in and must stay as it is.
    commands from step 2 give the same picture, and the management address
    on your interface list must be unchanged.
 
-8. Widen the rollout. First take the same snapshot on R10 and on R11:
+8. Widen the rollout.
+
+   [ROUTER R10 and R11] First take the same snapshot on each of them:
 
      copy running-config flash:before-terraform.cfg
 
-   Then change managed_devices so that it lists all three routers and run
-   terraform plan. Only R10 and R11 should show changes now, because R12
-   already matches. Run terraform apply.
+   [LAB MACHINE] Then change managed_devices so that it lists all three
+   routers and run terraform plan. Only R10 and R11 should show changes
+   now, because R12 already matches. Run terraform apply.
 
-9. Run terraform plan once more. It must say there is nothing to change.
+9. [LAB MACHINE] Run terraform plan once more. It must say there is
+   nothing to change.
 
-10. Run: python grading.py
+10. [LAB MACHINE] Run: python grading.py
 ```
 
 ## Test It Yourself (without the grader)
