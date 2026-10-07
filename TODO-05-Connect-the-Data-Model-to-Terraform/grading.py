@@ -376,8 +376,10 @@ def _terraform_env():
     env = dict(os.environ)
     env["TF_IN_AUTOMATION"] = "1"
     env["TF_INPUT"] = "0"
+    # This course's own mirror always wins over a value left in the shell by
+    # another course (a stale TF_CLI_CONFIG_FILE would break terraform init).
     rc = ROOT.parent / "offline-bundle" / "terraform.rc"
-    if "TF_CLI_CONFIG_FILE" not in env and rc.exists():
+    if rc.exists():
         env["TF_CLI_CONFIG_FILE"] = str(rc)
     return env
 
