@@ -71,13 +71,17 @@ Everything else in a skeleton is already filled in and must stay as it is.
    All three must say open. If one says CLOSED, NETCONF is not turned on
    there yet. The Router setup section of the course README shows how.
 
-2. Save R12's current state, so you can compare later. On R12 run:
+2. Take a snapshot of R12's configuration on the router itself, so you can
+   compare and roll back later. On R12 run:
+
+     copy running-config flash:before-terraform.cfg
+
+   Press Enter to accept the file name. If the router doesn't accept
+   flash:, use bootflash: instead. Then look at the starting point:
 
      show running-config | include hostname|domain
      show running-config interface Loopback0
      show ip interface brief
-
-   Copy the output somewhere. You'll need it in step 7.
 
 3. Give Terraform the router login. Do this in the terminal where you'll
    run everything from here on, because the grader needs the same variables:
@@ -106,13 +110,22 @@ Everything else in a skeleton is already filled in and must stay as it is.
 
    Look through the plan once more and type yes.
 
-7. On R12, run the three commands from step 2 again and compare with what
-   you saved. Loopback0 and the domain settings should be new. The
-   management address on your interface list must be unchanged.
+7. On R12, compare the snapshot with what the router has now:
 
-8. Widen the rollout. Change managed_devices so that it lists all three
-   routers, then run terraform plan. Only R10 and R11 should show changes
-   now, because R12 already matches. Run terraform apply.
+     show archive config differences flash:before-terraform.cfg system:running-config
+
+   Lines starting with + are new. You should see Loopback0 and the domain
+   settings, and nothing about the management interface. The three show
+   commands from step 2 give the same picture, and the management address
+   on your interface list must be unchanged.
+
+8. Widen the rollout. First take the same snapshot on R10 and on R11:
+
+     copy running-config flash:before-terraform.cfg
+
+   Then change managed_devices so that it lists all three routers and run
+   terraform plan. Only R10 and R11 should show changes now, because R12
+   already matches. Run terraform apply.
 
 9. Run terraform plan once more. It must say there is nothing to change.
 
@@ -168,7 +181,15 @@ configure terminal
 end
 ```
 
-Do the same on R10 or R11 if you pushed there. Then delete Terraform's record, so it doesn't think it still manages those settings:
+Do the same on R10 or R11 if you pushed there. These commands undo only what this TODO added.
+
+The snapshot from step 2 can also put a router back in one command, but it replaces the whole running configuration with the saved one, so use it only if nothing else on that router changed since the snapshot:
+
+```
+configure replace flash:before-terraform.cfg
+```
+
+Either way, delete Terraform's record afterwards, so it doesn't think it still manages those settings:
 
 ```
 rm -f terraform.tfstate terraform.tfstate.backup
