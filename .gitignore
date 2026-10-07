@@ -1,0 +1,6 @@
+.venv/
+.terraform/
+offline-bundle/
+__pycache__/
+merged*.yaml
+*.pyc

@@ -27,14 +27,7 @@ python3 -m pip download -r requirements.txt -d "$BUNDLE/wheels"
 python3 -m pip download -r requirements-later.txt -d "$BUNDLE/wheels"
 
 echo "==> 2/4 Terraform $TERRAFORM_VERSION (linux_$TF_ARCH)"
-ZIP="terraform_${TERRAFORM_VERSION}_linux_${TF_ARCH}.zip"
-BASE="https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}"
-curl -fsSL -o "$BUNDLE/$ZIP" "$BASE/$ZIP"
-curl -fsSL -o "$BUNDLE/terraform_SHA256SUMS" "$BASE/terraform_${TERRAFORM_VERSION}_SHA256SUMS"
-( cd "$BUNDLE" && grep " $ZIP\$" terraform_SHA256SUMS | sha256sum -c - )
-unzip -o -q "$BUNDLE/$ZIP" terraform -d "$BUNDLE/bin"
-chmod +x "$BUNDLE/bin/terraform"
-rm -f "$BUNDLE/$ZIP" "$BUNDLE/terraform_SHA256SUMS"
+python3 prep/fetch_tools.py terraform "$TERRAFORM_VERSION" "$TF_ARCH" "$BUNDLE/bin"
 
 echo "==> 3/4 Terraform providers (iosxe, utils, local)"
 WORK="$(mktemp -d)"
@@ -51,12 +44,7 @@ EOF
 rm -rf "$WORK"
 
 echo "==> 4/4 nac-iosxe Terraform module $NAC_IOSXE_MODULE_VERSION"
-curl -fsSL -o "$BUNDLE/nac-iosxe.tar.gz" \
-  "https://github.com/netascode/terraform-iosxe-nac-iosxe/archive/refs/tags/v${NAC_IOSXE_MODULE_VERSION}.tar.gz"
-rm -rf "$BUNDLE/modules/nac-iosxe"
-mkdir -p "$BUNDLE/modules/nac-iosxe"
-tar -xzf "$BUNDLE/nac-iosxe.tar.gz" -C "$BUNDLE/modules/nac-iosxe" --strip-components=1
-rm -f "$BUNDLE/nac-iosxe.tar.gz"
+python3 prep/fetch_tools.py module "$NAC_IOSXE_MODULE_VERSION" "$BUNDLE/modules/nac-iosxe"
 
 echo
 echo "Done. Copy this whole folder (offline-bundle/ included) to the offline lab machine."

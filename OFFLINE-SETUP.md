@@ -14,7 +14,7 @@ This is everything you need to download while a machine still has internet, and 
 | Terraform provider `hashicorp/local` | 2.9.1 | TODO 05 | 5 MB |
 | Terraform module `netascode/nac-iosxe` | 1.0.0 | TODO 05 | under 1 MB |
 
-You also need these already on the lab machine: Python 3.10 or newer (3.12 is a safe choice), `python3-venv`, `curl`, `unzip` and `git`. On Ubuntu: `sudo apt install python3-venv curl unzip git`.
+You also need Python 3.10 or newer (3.12 is a safe choice) with the `venv` module on the machine that runs the download. Nothing else: no `curl`, no `unzip`, no `sudo`. The scripts fetch and unpack everything with Python itself.
 
 ## 1. On a machine with internet
 
