@@ -134,20 +134,27 @@ You want `Syntax validation: PASSED` and exit code `0`.
 
 Then make sure the schema rejects bad data. You do this by breaking your real data on purpose, running the validator, and putting the file back. The `sed -i.bak` command edits the file and saves the original next to it as `devices.nac.yaml.bak`, so restoring is one `mv`:
 
+First, break the data and run the validator. Don't restore the file yet:
+
 ```
 sed -i.bak 's/address: 10.255.0.10/address: banana/' data/devices.nac.yaml
 nac-validate data -s .schema.yaml
 echo $?
-mv data/devices.nac.yaml.bak data/devices.nac.yaml
 ```
 
-The last line puts the original back. Don't skip it. This time you want `FAILED`, exit code `2`, and a message that names the exact key, like this:
+This time you want `FAILED`, exit code `2`, and a message that names the exact key, like this:
 
 ```
 iosxe.devices.[name=R10].configuration.interfaces.loopbacks.[id=0].ipv4.address: 'banana' is not a ip.
 ```
 
-Repeat with a different break each time. Restore each file before the next break:
+Once you've seen that, put the original back. Don't skip this:
+
+```
+mv data/devices.nac.yaml.bak data/devices.nac.yaml
+```
+
+Repeat with a different break each time. Each one should print `2`. Restore each file before the next break:
 
 ```
 # ip_routing is neither true nor false

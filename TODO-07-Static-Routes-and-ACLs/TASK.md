@@ -273,14 +273,19 @@ A rule break, which passes the schema (the name is just text) but must exit `1` 
 sed -i.bak 's/access_group_in: LOOPBACK-NET/access_group_in: NO-SUCH-ACL/' data/routing.nac.yaml
 nac-validate data -s .schema.yaml -r rules
 echo $?
-mv data/routing.nac.yaml.bak data/routing.nac.yaml
 ```
 
-Expect a block like this, with one line for each of the three routers:
+Expect exit code `1` and a block like this, with one line for each of the three routers:
 
 ```
 [RULE 103] An interface may only use an ACL that the same device defines
   • R10 Loopback0 uses ACL 'NO-SUCH-ACL', which the device does not define
+```
+
+Then put the file back:
+
+```
+mv data/routing.nac.yaml.bak data/routing.nac.yaml
 ```
 
 Then run `nac-validate data -s .schema.yaml -r rules` once more. It should pass again, which proves the files are back as they were.

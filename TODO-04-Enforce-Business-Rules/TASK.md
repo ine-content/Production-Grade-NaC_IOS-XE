@@ -156,7 +156,6 @@ Rule 101, R11 gets the wrong hostname:
 sed -i.bak 's/hostname: R11/hostname: ROUTER-11/' data/devices.nac.yaml
 nac-validate data -s .schema.yaml -r rules
 echo $?
-mv data/devices.nac.yaml.bak data/devices.nac.yaml
 ```
 
 Expect exit code `1` and a block like this:
@@ -166,13 +165,18 @@ Expect exit code `1` and a block like this:
   • iosxe.devices[name=R11].configuration.system.hostname - 'ROUTER-11' does not match the device name
 ```
 
+Then put the file back:
+
+```
+mv data/devices.nac.yaml.bak data/devices.nac.yaml
+```
+
 Rule 102, R11 reuses R10's loopback address:
 
 ```
 sed -i.bak 's/address: 10.255.0.11/address: 10.255.0.10/' data/devices.nac.yaml
 nac-validate data -s .schema.yaml -r rules
 echo $?
-mv data/devices.nac.yaml.bak data/devices.nac.yaml
 ```
 
 Expect exit code `1` and:
@@ -180,6 +184,12 @@ Expect exit code `1` and:
 ```
 [RULE 102] No IPv4 address may be used more than once
   • address 10.255.0.10 is used by R10.loopback0, R11.loopback0
+```
+
+Then put the file back:
+
+```
+mv data/devices.nac.yaml.bak data/devices.nac.yaml
 ```
 
 Two more to try, with the same pattern. Make R12's `host` equal to R10's, and give R11's loopback the management address `10.10.10.11`:
