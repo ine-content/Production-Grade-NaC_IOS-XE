@@ -1,5 +1,7 @@
 .venv/
 .terraform/
+terraform.tfstate
+terraform.tfstate.backup
 offline-bundle/
 __pycache__/
 merged*.yaml

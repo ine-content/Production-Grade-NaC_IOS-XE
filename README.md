@@ -43,7 +43,7 @@ Port 830 has to be reachable from the lab machine (10.10.10.250). If the routers
 | 03 | Validate Structure with a Schema | No | Built and tested |
 | 04 | Enforce Business Rules | No | Built and tested |
 | 05 | Connect the Data Model to Terraform | No | Built; Terraform steps not yet run on real hardware |
-| 06 | First Push to R10-R12 | Yes | Planned |
+| 06 | First Push to R10-R12 | Yes | Built; not yet run on real routers |
 | 07 | Static Routes and ACLs | Yes | Planned |
 | 08 | OSPF Across the Branch Routers | Yes | Planned |
 | 09 | BGP Peering | Yes | Planned |
