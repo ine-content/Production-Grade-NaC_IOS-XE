@@ -1,0 +1,38 @@
+iosxe:
+  devices:
+    - name: R10
+      host: 10.10.10.10
+      configuration:
+        system:
+          hostname: R10
+        interfaces:
+          loopbacks:
+            - id: 0
+              description: ROUTER-ID
+              ipv4:
+                address: 10.255.0.10
+                address_mask: 255.255.255.255
+    - name: R11
+      host: 10.10.10.11
+      configuration:
+        system:
+          hostname: R11
+        interfaces:
+          loopbacks:
+            - id: 0
+              description: ROUTER-ID
+              ipv4:
+                address: 10.255.0.11
+                address_mask: 255.255.255.255
+    - name: R12
+      host: 10.10.10.12
+      configuration:
+        system:
+          hostname: R12
+        interfaces:
+          loopbacks:
+            - id: 0
+              description: ROUTER-ID
+              ipv4:
+                address: 10.255.0.12
+                address_mask: 255.255.255.255
