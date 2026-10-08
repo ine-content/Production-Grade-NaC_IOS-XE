@@ -10,7 +10,7 @@ A hands-on course in the Network as Code approach from netascode.cisco.com. You 
 | R11 | aus02 (Austin) | prod | 10.10.10.11 |
 | R12 | sea03 (Seattle) | staging | 10.10.10.12 |
 
-The lab machine is 10.10.10.250. All four are on the same 10.10.10.0/24 segment.
+The lab machine is called CWS and its address is 10.10.10.250. All four are on the same 10.10.10.0/24 segment.
 
 ## Safety rules
 
@@ -32,7 +32,7 @@ configure terminal
 end
 ```
 
-Port 830 has to be reachable from the lab machine (10.10.10.250). If the routers use AAA, make sure that login is allowed to run NETCONF. TODO 06 starts with a check that tells you whether this is set up correctly.
+Port 830 has to be reachable from CWS (10.10.10.250). If the routers use AAA, make sure that login is allowed to run NETCONF. TODO 06 starts with a check that tells you whether this is set up correctly.
 
 ## Course map
 

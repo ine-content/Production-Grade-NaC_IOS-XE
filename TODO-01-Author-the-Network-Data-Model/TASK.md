@@ -48,7 +48,7 @@ You won't write a lot of YAML. The point is a pipeline that is safe to run again
     R11  (Austin   - aus02, prod)      10.10.10.11
     R12  (Seattle  - sea03, staging)   10.10.10.12
 
-  Your lab machine (10.10.10.250) is on the same 10.10.10.0/24 segment. That
+  Your lab machine, CWS (10.10.10.250), is on the same 10.10.10.0/24 segment. That
   segment is also how you reach the routers, so this course never changes its
   IP address and never puts an ACL on it.
 ```

@@ -97,16 +97,16 @@ Change the path if you put the course folder somewhere else.
 
 ## Steps
 
-Each step starts by saying where to run it. "On the lab machine" means a normal terminal on the lab machine, in this folder. "On R10" (or R11, R12) means that router's own command line (SSH or console). These labels are only directions. You don't type them anywhere.
+Each step starts by saying where to run it. "On CWS" means a normal terminal on the lab machine (CWS), in this folder. "On R10" (or R11, R12) means that router's own command line (SSH or console). These labels are only directions. You don't type them anywhere.
 
 ```
-1. On the lab machine: Create data/bgp.nac.yaml. For each of R10, R11 and R12,
+1. On CWS: Create data/bgp.nac.yaml. For each of R10, R11 and R12,
    add an entry with its name and, under configuration -> routing, the
    bgp block from the Technical Requirements. Follow the shape of the
    Worked Example. There is no interfaces section in this file, because
    the loopbacks already exist.
 
-2. On the lab machine: Add BGP to the schema. In .schema.yaml, add this
+2. On CWS: Add BGP to the schema. In .schema.yaml, add this
    line to the routing block, next to ospf_processes:
 
      bgp: include('bgp', required=False)
@@ -148,7 +148,7 @@ Each step starts by saying where to run it. "On the lab machine" means a normal 
    - update_source_interface_id is a whole number, 0 or more, and
      optional.
 
-3. On the lab machine: Create rules/105_bgp_neighbor_matches_peer.py. It reports a
+3. On CWS: Create rules/105_bgp_neighbor_matches_peer.py. It reports a
    BGP neighbor that is not another device's Loopback0 address, or whose
    remote_as is not the AS that device runs:
 
@@ -195,7 +195,7 @@ Each step starts by saying where to run it. "On the lab machine" means a normal 
    Press Enter to accept the file name. Use bootflash: if flash: isn't
    accepted. The listing must show a size above zero.
 
-5. On the lab machine: Bring Terraform's record forward from the last TODO and
+5. On CWS: Bring Terraform's record forward from the last TODO and
    read the plan:
 
      cp ../TODO-08-OSPF-Across-the-Branch-Routers/terraform.tfstate .
@@ -211,7 +211,7 @@ Each step starts by saying where to run it. "On the lab machine" means a normal 
    to add in total, 0 to change, 0 to destroy. Nothing about OSPF,
    routes, ACLs or loopbacks.
 
-6. On the lab machine: Run:  terraform apply
+6. On CWS: Run:  terraform apply
 
    Look through the plan once more and type yes.
 
@@ -225,10 +225,10 @@ Each step starts by saying where to run it. "On the lab machine" means a normal 
    The expected output is in Test It Yourself below. Do the same on R11
    and R12 with their own neighbours.
 
-8. On the lab machine: Run terraform plan once more. It must say there is
+8. On CWS: Run terraform plan once more. It must say there is
    nothing to change.
 
-9. On the lab machine: Run: python grading.py
+9. On CWS: Run: python grading.py
 ```
 
 ## Test It Yourself (without the grader)

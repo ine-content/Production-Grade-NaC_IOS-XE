@@ -71,10 +71,10 @@ Change the path if you put the course folder somewhere else.
 
 ## Steps
 
-Each step starts by saying where to run it. "On the lab machine" means a normal terminal on the lab machine, in this folder. "On R10" (or R11, R12) means that router's own command line (SSH or console). These labels are only directions. You don't type them anywhere.
+Each step starts by saying where to run it. "On CWS" means a normal terminal on the lab machine (CWS), in this folder. "On R10" (or R11, R12) means that router's own command line (SSH or console). These labels are only directions. You don't type them anywhere.
 
 ```
-1. On the lab machine: In your terminal, check that each router answers on the
+1. On CWS: In your terminal, check that each router answers on the
    NETCONF port. Paste all three lines at once:
 
      for ip in 10.10.10.10 10.10.10.11 10.10.10.12; do
@@ -107,7 +107,7 @@ Each step starts by saying where to run it. "On the lab machine" means a normal 
      show running-config interface Loopback0
      show ip interface brief
 
-3. On the lab machine: Give Terraform the router login. Do this in the terminal
+3. On CWS: Give Terraform the router login. Do this in the terminal
    where you'll run everything from here on, because the grader needs the
    same variables:
 
@@ -117,21 +117,21 @@ Each step starts by saying where to run it. "On the lab machine" means a normal 
    After the second command, type the password and press Enter. Nothing is
    shown on screen, and it stays out of your shell history and your files.
 
-4. On the lab machine: Limit the module to the staging router. In the module
+4. On CWS: Limit the module to the staging router. In the module
    block of main.tf, add one line:
 
      managed_devices = [...]
 
    Put R12 in the list, and only R12.
 
-5. On the lab machine: Run:  terraform init
+5. On CWS: Run:  terraform init
                        terraform plan
 
    Read the plan. Only R12 should show anything. Expect a Loopback0 to be
    added and a domain name set. If R10 or R11 appear, stop and check the
    line from step 4.
 
-6. On the lab machine: Run:  terraform apply
+6. On CWS: Run:  terraform apply
 
    Look through the plan once more and type yes.
 
@@ -150,14 +150,14 @@ Each step starts by saying where to run it. "On the lab machine" means a normal 
 
      copy running-config flash:before-terraform.cfg
 
-   On the lab machine: Then change managed_devices so that it lists all three
+   On CWS: Then change managed_devices so that it lists all three
    routers and run terraform plan. Only R10 and R11 should show changes
    now, because R12 already matches. Run terraform apply.
 
-9. On the lab machine: Run terraform plan once more. It must say there is
+9. On CWS: Run terraform plan once more. It must say there is
    nothing to change.
 
-10. On the lab machine: Run: python grading.py
+10. On CWS: Run: python grading.py
 ```
 
 ## Test It Yourself (without the grader)

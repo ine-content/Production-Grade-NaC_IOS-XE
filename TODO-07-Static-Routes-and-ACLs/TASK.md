@@ -111,15 +111,15 @@ Change the path if you put the course folder somewhere else.
 
 ## Steps
 
-Each step starts by saying where to run it. "On the lab machine" means a normal terminal on the lab machine, in this folder. "On R10" (or R11, R12) means that router's own command line (SSH or console). These labels are only directions. You don't type them anywhere.
+Each step starts by saying where to run it. "On CWS" means a normal terminal on the lab machine (CWS), in this folder. "On R10" (or R11, R12) means that router's own command line (SSH or console). These labels are only directions. You don't type them anywhere.
 
 ```
-1. On the lab machine: Create data/routing.nac.yaml. For each of R10, R11 and
+1. On CWS: Create data/routing.nac.yaml. For each of R10, R11 and
    R12, add an entry with its name and, under configuration, the static
    routes, the ACL, and the loopback binding from the Technical
    Requirements. Follow the shape of the Worked Example.
 
-2. On the lab machine: Add the new keys to the schema. Open .schema.yaml and add
+2. On CWS: Add the new keys to the schema. Open .schema.yaml and add
    the blocks below. Fill in each ... with the right validator:
 
      configuration:
@@ -165,7 +165,7 @@ Each step starts by saying where to run it. "On the lab machine" means a normal 
    address and address_mask in the ipv4 block can no longer be required.
    Add required=False to both.
 
-3. On the lab machine: Create rules/103_acl_references_exist.py. It reports a
+3. On CWS: Create rules/103_acl_references_exist.py. It reports a
    loopback that uses an ACL its own device doesn't define:
 
      from nac_validate import RuleBase
@@ -203,7 +203,7 @@ Each step starts by saying where to run it. "On the lab machine" means a normal 
    Press Enter to accept the file name. Use bootflash: if flash: isn't
    accepted. The listing must show a size above zero.
 
-5. On the lab machine: Bring Terraform's record forward. Each TODO folder is
+5. On CWS: Bring Terraform's record forward. Each TODO folder is
    separate, so this one starts with an empty record. Without the old one,
    Terraform would plan to create the loopbacks and domain settings again:
 
@@ -219,7 +219,7 @@ Each step starts by saying where to run it. "On the lab machine" means a normal 
    and a change to each Loopback0 for the access group. Nothing about
    domain names, hostnames or the Loopback0 address.
 
-6. On the lab machine: Run:  terraform apply
+6. On CWS: Run:  terraform apply
 
    Look through the plan once more and type yes.
 
@@ -233,10 +233,10 @@ Each step starts by saying where to run it. "On the lab machine" means a normal 
    The expected output is in Test It Yourself below. Do the same on R11
    and R12 with their own neighbours.
 
-8. On the lab machine: Run terraform plan once more. It must say there is
+8. On CWS: Run terraform plan once more. It must say there is
    nothing to change.
 
-9. On the lab machine: Run: python grading.py
+9. On CWS: Run: python grading.py
 ```
 
 ## Test It Yourself (without the grader)
