@@ -47,7 +47,7 @@ Port 830 has to be reachable from the lab machine (10.10.10.250). If the routers
 | 07 | Static Routes and ACLs | Yes | Built; not yet run on real routers |
 | 08 | OSPF Across the Branch Routers | Yes | Built; not yet run on real routers |
 | 09 | BGP Peering | Yes | Built; not yet run on real routers |
-| 10 | Detect and Reconcile Drift | Yes | Planned |
+| 10 | Detect and Reconcile Drift | Yes | Built; not yet run on real routers |
 | 11 | Verify Live State with nac-test | Yes | Planned |
 | 12 | Gate the Pipeline and Emit an Audit Log | Yes | Planned |
 

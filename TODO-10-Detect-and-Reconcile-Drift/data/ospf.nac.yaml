@@ -1,0 +1,86 @@
+iosxe:
+  devices:
+    - name: R10
+      configuration:
+        interfaces:
+          loopbacks:
+            - id: 10
+              description: BRANCH-LAN
+              ipv4:
+                address: 172.16.10.1
+                address_mask: 255.255.255.255
+        routing:
+          ospf_processes:
+            - id: 1
+              router_id: 10.255.0.10
+              networks:
+                - ip: 10.10.10.0
+                  wildcard: 0.0.0.255
+                  area: 0
+                - ip: 10.255.0.0
+                  wildcard: 0.0.0.255
+                  area: 0
+                - ip: 172.16.0.0
+                  wildcard: 0.0.255.255
+                  area: 0
+              passive_interfaces:
+                - interface_type: Loopback
+                  interface_id: 0
+                - interface_type: Loopback
+                  interface_id: 10
+    - name: R11
+      configuration:
+        interfaces:
+          loopbacks:
+            - id: 10
+              description: BRANCH-LAN
+              ipv4:
+                address: 172.16.11.1
+                address_mask: 255.255.255.255
+        routing:
+          ospf_processes:
+            - id: 1
+              router_id: 10.255.0.11
+              networks:
+                - ip: 10.10.10.0
+                  wildcard: 0.0.0.255
+                  area: 0
+                - ip: 10.255.0.0
+                  wildcard: 0.0.0.255
+                  area: 0
+                - ip: 172.16.0.0
+                  wildcard: 0.0.255.255
+                  area: 0
+              passive_interfaces:
+                - interface_type: Loopback
+                  interface_id: 0
+                - interface_type: Loopback
+                  interface_id: 10
+    - name: R12
+      configuration:
+        interfaces:
+          loopbacks:
+            - id: 10
+              description: BRANCH-LAN
+              ipv4:
+                address: 172.16.12.1
+                address_mask: 255.255.255.255
+        routing:
+          ospf_processes:
+            - id: 1
+              router_id: 10.255.0.12
+              networks:
+                - ip: 10.10.10.0
+                  wildcard: 0.0.0.255
+                  area: 0
+                - ip: 10.255.0.0
+                  wildcard: 0.0.0.255
+                  area: 0
+                - ip: 172.16.0.0
+                  wildcard: 0.0.255.255
+                  area: 0
+              passive_interfaces:
+                - interface_type: Loopback
+                  interface_id: 0
+                - interface_type: Loopback
+                  interface_id: 10

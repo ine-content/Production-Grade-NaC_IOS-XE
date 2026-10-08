@@ -5,4 +5,5 @@ terraform.tfstate.backup
 offline-bundle/
 __pycache__/
 merged*.yaml
+drift-plan.txt
 *.pyc

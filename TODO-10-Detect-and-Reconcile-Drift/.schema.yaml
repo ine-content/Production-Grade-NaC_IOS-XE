@@ -1,0 +1,85 @@
+iosxe: include('iosxe', required=False)
+---
+iosxe:
+  devices: list(include('device'), required=False)
+device:
+  name: str()
+  host: ip(version=4, required=False)
+  configuration: include('configuration', required=False)
+configuration:
+  system: include('system', required=False)
+  interfaces: include('interfaces', required=False)
+  routing: include('routing', required=False)
+  access_lists: include('access_lists', required=False)
+system:
+  hostname: str(required=False)
+  ip_routing: bool(required=False)
+  ip_domain_name: str(required=False)
+  ip_domain_lookup: bool(required=False)
+interfaces:
+  loopbacks: list(include('loopback'), required=False)
+loopback:
+  id: int(min=0)
+  description: str(required=False)
+  ipv4: include('ipv4', required=False)
+ipv4:
+  address: ip(version=4, required=False)
+  address_mask: ip(version=4, required=False)
+  access_group_in: str(required=False)
+routing:
+  static_routes: list(include('static_route'), required=False)
+  ospf_processes: list(include('ospf_process'), required=False)
+  bgp: include('bgp', required=False)
+static_route:
+  prefix: ip(version=4)
+  mask: ip(version=4)
+  next_hops: list(include('next_hop'))
+next_hop:
+  ip: ip(version=4)
+access_lists:
+  standard: list(include('standard_acl'), required=False)
+standard_acl:
+  name: str()
+  entries: list(include('standard_entry'))
+standard_entry:
+  sequence: int(min=1, max=2147483647)
+  action: enum('permit', 'deny')
+  prefix: ip(version=4, required=False)
+  prefix_mask: ip(version=4, required=False)
+  any: bool(required=False)
+ospf_process:
+  id: int(min=1, max=65535)
+  router_id: ip(version=4, required=False)
+  networks: list(include('ospf_network'), required=False)
+  passive_interfaces: list(include('interface_ref'), required=False)
+ospf_network:
+  ip: ip(version=4)
+  wildcard: ip(version=4)
+  area: int(min=0)
+interface_ref:
+  interface_type: str()
+  interface_id: int(min=0)
+bgp:
+  as_number: int(min=1, max=4294967295)
+  router_id: ip(version=4, required=False)
+  default_ipv4_unicast: bool(required=False)
+  log_neighbor_changes: bool(required=False)
+  neighbors: list(include('bgp_neighbor'), required=False)
+  address_family: include('bgp_address_family', required=False)
+bgp_neighbor:
+  ip: ip(version=4)
+  remote_as: int(min=1, max=4294967295)
+  description: str(required=False)
+  update_source_interface_type: str(required=False)
+  update_source_interface_id: int(min=0, required=False)
+bgp_address_family:
+  ipv4_unicast: include('bgp_ipv4_unicast', required=False)
+bgp_ipv4_unicast:
+  networks: list(include('bgp_network'), required=False)
+  neighbors: list(include('bgp_af_neighbor'), required=False)
+bgp_network:
+  network: ip(version=4)
+  mask: ip(version=4)
+bgp_af_neighbor:
+  ip: ip(version=4)
+  activate: bool(required=False)

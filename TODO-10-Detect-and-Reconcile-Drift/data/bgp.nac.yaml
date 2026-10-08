@@ -1,0 +1,89 @@
+iosxe:
+  devices:
+    - name: R10
+      configuration:
+        routing:
+          bgp:
+            as_number: 65010
+            router_id: 10.255.0.10
+            default_ipv4_unicast: false
+            log_neighbor_changes: true
+            neighbors:
+              - ip: 10.255.0.11
+                remote_as: 65010
+                description: R11
+                update_source_interface_type: Loopback
+                update_source_interface_id: 0
+              - ip: 10.255.0.12
+                remote_as: 65010
+                description: R12
+                update_source_interface_type: Loopback
+                update_source_interface_id: 0
+            address_family:
+              ipv4_unicast:
+                networks:
+                  - network: 172.16.10.1
+                    mask: 255.255.255.255
+                neighbors:
+                  - ip: 10.255.0.11
+                    activate: true
+                  - ip: 10.255.0.12
+                    activate: true
+    - name: R11
+      configuration:
+        routing:
+          bgp:
+            as_number: 65010
+            router_id: 10.255.0.11
+            default_ipv4_unicast: false
+            log_neighbor_changes: true
+            neighbors:
+              - ip: 10.255.0.10
+                remote_as: 65010
+                description: R10
+                update_source_interface_type: Loopback
+                update_source_interface_id: 0
+              - ip: 10.255.0.12
+                remote_as: 65010
+                description: R12
+                update_source_interface_type: Loopback
+                update_source_interface_id: 0
+            address_family:
+              ipv4_unicast:
+                networks:
+                  - network: 172.16.11.1
+                    mask: 255.255.255.255
+                neighbors:
+                  - ip: 10.255.0.10
+                    activate: true
+                  - ip: 10.255.0.12
+                    activate: true
+    - name: R12
+      configuration:
+        routing:
+          bgp:
+            as_number: 65010
+            router_id: 10.255.0.12
+            default_ipv4_unicast: false
+            log_neighbor_changes: true
+            neighbors:
+              - ip: 10.255.0.10
+                remote_as: 65010
+                description: R10
+                update_source_interface_type: Loopback
+                update_source_interface_id: 0
+              - ip: 10.255.0.11
+                remote_as: 65010
+                description: R11
+                update_source_interface_type: Loopback
+                update_source_interface_id: 0
+            address_family:
+              ipv4_unicast:
+                networks:
+                  - network: 172.16.12.1
+                    mask: 255.255.255.255
+                neighbors:
+                  - ip: 10.255.0.10
+                    activate: true
+                  - ip: 10.255.0.11
+                    activate: true

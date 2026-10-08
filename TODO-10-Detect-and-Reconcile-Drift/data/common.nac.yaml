@@ -1,0 +1,20 @@
+iosxe:
+  devices:
+    - name: R10
+      configuration:
+        system:
+          ip_routing: true
+          ip_domain_name: meridian.local
+          ip_domain_lookup: false
+    - name: R11
+      configuration:
+        system:
+          ip_routing: true
+          ip_domain_name: meridian.local
+          ip_domain_lookup: false
+    - name: R12
+      configuration:
+        system:
+          ip_routing: true
+          ip_domain_name: meridian.local
+          ip_domain_lookup: false
