@@ -108,15 +108,15 @@ Change the path if you put the course folder somewhere else.
 
 ## Steps
 
-Each step says where to run its commands. LAB MACHINE means a normal terminal on the lab machine, in this folder. ROUTER means the router's own command line (SSH or console).
+Each step starts by saying where to run it. "On the lab machine" means a normal terminal on the lab machine, in this folder. "On R10" (or R11, R12) means that router's own command line (SSH or console). These labels are only directions. You don't type them anywhere.
 
 ```
-1. [LAB MACHINE] Create data/ospf.nac.yaml. For each of R10, R11 and R12,
+1. On the lab machine: Create data/ospf.nac.yaml. For each of R10, R11 and R12,
    add an entry with its name and, under configuration, the Loopback10
    and the OSPF process from the Technical Requirements. Follow the shape
    of the Worked Example.
 
-2. [LAB MACHINE] Add OSPF to the schema. In .schema.yaml, add this
+2. On the lab machine: Add OSPF to the schema. In .schema.yaml, add this
    line to the routing block, next to static_routes:
 
      ospf_processes: list(include('ospf_process'), required=False)
@@ -143,7 +143,7 @@ Each step says where to run its commands. LAB MACHINE means a normal terminal on
    - area is a whole number, 0 or more.
    - interface_type is text, interface_id a whole number, 0 or more.
 
-3. [LAB MACHINE] Create rules/104_ospf_router_id_is_loopback0.py. It reports
+3. On the lab machine: Create rules/104_ospf_router_id_is_loopback0.py. It reports
    an OSPF process whose router ID is not the device's Loopback0 address:
 
      from nac_validate import RuleBase
@@ -172,7 +172,7 @@ Each step says where to run its commands. LAB MACHINE means a normal terminal on
    a device, so use .get() with a default. A process with no router ID
    should be reported too.
 
-4. [ROUTER R10, R11, R12] Take a snapshot on each router, then check it:
+4. On R10, R11 and R12: Take a snapshot on each router, then check it:
 
      copy running-config flash:before-todo08.cfg
      dir flash:before-todo08.cfg
@@ -180,7 +180,7 @@ Each step says where to run its commands. LAB MACHINE means a normal terminal on
    Press Enter to accept the file name. Use bootflash: if flash: isn't
    accepted. The listing must show a size above zero.
 
-5. [LAB MACHINE] Bring Terraform's record forward from the last TODO and
+5. On the lab machine: Bring Terraform's record forward from the last TODO and
    read the plan:
 
      cp ../TODO-07-Static-Routes-and-ACLs/terraform.tfstate .
@@ -194,11 +194,11 @@ Each step says where to run its commands. LAB MACHINE means a normal terminal on
    Only new things should appear: three Loopback10 interfaces and three
    OSPF processes. Nothing about routes, ACLs, domain names or Loopback0.
 
-6. [LAB MACHINE] Run:  terraform apply
+6. On the lab machine: Run:  terraform apply
 
    Look through the plan once more and type yes.
 
-7. [ROUTER R10, R11, R12] Wait about 40 seconds for the adjacencies, then
+7. On R10, R11 and R12: Wait about 40 seconds for the adjacencies, then
    check each router. Here is R10:
 
      show ip ospf neighbor
@@ -208,10 +208,10 @@ Each step says where to run its commands. LAB MACHINE means a normal terminal on
    The expected output is in Test It Yourself below. Do the same on R11
    and R12 with their own neighbours.
 
-8. [LAB MACHINE] Run terraform plan once more. It must say there is
+8. On the lab machine: Run terraform plan once more. It must say there is
    nothing to change.
 
-9. [LAB MACHINE] Run: python grading.py
+9. On the lab machine: Run: python grading.py
 ```
 
 ## Test It Yourself (without the grader)

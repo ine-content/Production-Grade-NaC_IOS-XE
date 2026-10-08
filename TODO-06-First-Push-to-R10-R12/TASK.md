@@ -71,10 +71,10 @@ Change the path if you put the course folder somewhere else.
 
 ## Steps
 
-Each step says where to run its commands. LAB MACHINE means a normal terminal on the lab machine, in this folder. ROUTER means the router's own command line (SSH or console).
+Each step starts by saying where to run it. "On the lab machine" means a normal terminal on the lab machine, in this folder. "On R10" (or R11, R12) means that router's own command line (SSH or console). These labels are only directions. You don't type them anywhere.
 
 ```
-1. [LAB MACHINE] In your terminal, check that each router answers on the
+1. On the lab machine: In your terminal, check that each router answers on the
    NETCONF port. Paste all three lines at once:
 
      for ip in 10.10.10.10 10.10.10.11 10.10.10.12; do
@@ -84,7 +84,7 @@ Each step says where to run its commands. LAB MACHINE means a normal terminal on
    All three must say open. If one says CLOSED, NETCONF is not turned on
    there yet. The Router setup section of the course README shows how.
 
-2. [ROUTER R12] Take a snapshot of R12's configuration on the router
+2. On R12: Take a snapshot of R12's configuration on the router
    itself, so you can compare and roll back later:
 
      copy running-config flash:before-terraform.cfg
@@ -107,7 +107,7 @@ Each step says where to run its commands. LAB MACHINE means a normal terminal on
      show running-config interface Loopback0
      show ip interface brief
 
-3. [LAB MACHINE] Give Terraform the router login. Do this in the terminal
+3. On the lab machine: Give Terraform the router login. Do this in the terminal
    where you'll run everything from here on, because the grader needs the
    same variables:
 
@@ -117,25 +117,25 @@ Each step says where to run its commands. LAB MACHINE means a normal terminal on
    After the second command, type the password and press Enter. Nothing is
    shown on screen, and it stays out of your shell history and your files.
 
-4. [LAB MACHINE] Limit the module to the staging router. In the module
+4. On the lab machine: Limit the module to the staging router. In the module
    block of main.tf, add one line:
 
      managed_devices = [...]
 
    Put R12 in the list, and only R12.
 
-5. [LAB MACHINE] Run:  terraform init
+5. On the lab machine: Run:  terraform init
                        terraform plan
 
    Read the plan. Only R12 should show anything. Expect a Loopback0 to be
    added and a domain name set. If R10 or R11 appear, stop and check the
    line from step 4.
 
-6. [LAB MACHINE] Run:  terraform apply
+6. On the lab machine: Run:  terraform apply
 
    Look through the plan once more and type yes.
 
-7. [ROUTER R12] Compare the snapshot with what the router has now:
+7. On R12: Compare the snapshot with what the router has now:
 
      show archive config differences flash:before-terraform.cfg system:running-config
 
@@ -146,18 +146,18 @@ Each step says where to run its commands. LAB MACHINE means a normal terminal on
 
 8. Widen the rollout.
 
-   [ROUTER R10 and R11] First take the same snapshot on each of them:
+   On R10 and R11: First take the same snapshot on each of them:
 
      copy running-config flash:before-terraform.cfg
 
-   [LAB MACHINE] Then change managed_devices so that it lists all three
+   On the lab machine: Then change managed_devices so that it lists all three
    routers and run terraform plan. Only R10 and R11 should show changes
    now, because R12 already matches. Run terraform apply.
 
-9. [LAB MACHINE] Run terraform plan once more. It must say there is
+9. On the lab machine: Run terraform plan once more. It must say there is
    nothing to change.
 
-10. [LAB MACHINE] Run: python grading.py
+10. On the lab machine: Run: python grading.py
 ```
 
 ## Test It Yourself (without the grader)

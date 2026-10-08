@@ -111,15 +111,15 @@ Change the path if you put the course folder somewhere else.
 
 ## Steps
 
-Each step says where to run its commands. LAB MACHINE means a normal terminal on the lab machine, in this folder. ROUTER means the router's own command line (SSH or console).
+Each step starts by saying where to run it. "On the lab machine" means a normal terminal on the lab machine, in this folder. "On R10" (or R11, R12) means that router's own command line (SSH or console). These labels are only directions. You don't type them anywhere.
 
 ```
-1. [LAB MACHINE] Create data/routing.nac.yaml. For each of R10, R11 and
+1. On the lab machine: Create data/routing.nac.yaml. For each of R10, R11 and
    R12, add an entry with its name and, under configuration, the static
    routes, the ACL, and the loopback binding from the Technical
    Requirements. Follow the shape of the Worked Example.
 
-2. [LAB MACHINE] Add the new keys to the schema. Open .schema.yaml and add
+2. On the lab machine: Add the new keys to the schema. Open .schema.yaml and add
    the blocks below. Fill in each ... with the right validator:
 
      configuration:
@@ -165,7 +165,7 @@ Each step says where to run its commands. LAB MACHINE means a normal terminal on
    address and address_mask in the ipv4 block can no longer be required.
    Add required=False to both.
 
-3. [LAB MACHINE] Create rules/103_acl_references_exist.py. It reports a
+3. On the lab machine: Create rules/103_acl_references_exist.py. It reports a
    loopback that uses an ACL its own device doesn't define:
 
      from nac_validate import RuleBase
@@ -195,7 +195,7 @@ Each step says where to run its commands. LAB MACHINE means a normal terminal on
    loopback may have no binding at all, so use .get() with a default, and
    only report when there is a name that is not in defined.
 
-4. [ROUTER R10, R11, R12] Take a snapshot on each router, then check it:
+4. On R10, R11 and R12: Take a snapshot on each router, then check it:
 
      copy running-config flash:before-todo07.cfg
      dir flash:before-todo07.cfg
@@ -203,7 +203,7 @@ Each step says where to run its commands. LAB MACHINE means a normal terminal on
    Press Enter to accept the file name. Use bootflash: if flash: isn't
    accepted. The listing must show a size above zero.
 
-5. [LAB MACHINE] Bring Terraform's record forward. Each TODO folder is
+5. On the lab machine: Bring Terraform's record forward. Each TODO folder is
    separate, so this one starts with an empty record. Without the old one,
    Terraform would plan to create the loopbacks and domain settings again:
 
@@ -219,11 +219,11 @@ Each step says where to run its commands. LAB MACHINE means a normal terminal on
    and a change to each Loopback0 for the access group. Nothing about
    domain names, hostnames or the Loopback0 address.
 
-6. [LAB MACHINE] Run:  terraform apply
+6. On the lab machine: Run:  terraform apply
 
    Look through the plan once more and type yes.
 
-7. [ROUTER R10, R11, R12] Check each router. Here is R10:
+7. On R10, R11 and R12: Check each router. Here is R10:
 
      show ip route static
      show access-lists LOOPBACK-NET
@@ -233,10 +233,10 @@ Each step says where to run its commands. LAB MACHINE means a normal terminal on
    The expected output is in Test It Yourself below. Do the same on R11
    and R12 with their own neighbours.
 
-8. [LAB MACHINE] Run terraform plan once more. It must say there is
+8. On the lab machine: Run terraform plan once more. It must say there is
    nothing to change.
 
-9. [LAB MACHINE] Run: python grading.py
+9. On the lab machine: Run: python grading.py
 ```
 
 ## Test It Yourself (without the grader)

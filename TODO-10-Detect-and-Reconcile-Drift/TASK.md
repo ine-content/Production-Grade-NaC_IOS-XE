@@ -95,10 +95,10 @@ Change the path if you put the course folder somewhere else.
 
 ## Steps
 
-Each step says where to run its commands. LAB MACHINE means a normal terminal on the lab machine, in this folder. ROUTER means the router's own command line (SSH or console).
+Each step starts by saying where to run it. "On the lab machine" means a normal terminal on the lab machine, in this folder. "On R10" (or R11, R12) means that router's own command line (SSH or console). These labels are only directions. You don't type them anywhere.
 
 ```
-1. [LAB MACHINE] Create drift_check.sh. Fill in each ...:
+1. On the lab machine: Create drift_check.sh. Fill in each ...:
 
      #!/usr/bin/env bash
      # Compare the routers with the data model. Changes nothing.
@@ -122,7 +122,7 @@ Each step says where to run its commands. LAB MACHINE means a normal terminal on
    table. The grep line prints the plan's summary, for example
    "Plan: 0 to add, 1 to change, 0 to destroy."
 
-2. [ROUTER R10, R11, R12] Take a snapshot on each router, then check it:
+2. On R10, R11 and R12: Take a snapshot on each router, then check it:
 
      copy running-config flash:before-todo10.cfg
      dir flash:before-todo10.cfg
@@ -130,7 +130,7 @@ Each step says where to run its commands. LAB MACHINE means a normal terminal on
    Press Enter to accept the file name. Use bootflash: if flash: isn't
    accepted. The listing must show a size above zero.
 
-3. [LAB MACHINE] Bring Terraform's record forward from the last TODO:
+3. On the lab machine: Bring Terraform's record forward from the last TODO:
 
      cp ../TODO-09-BGP-Peering/terraform.tfstate .
      terraform init
@@ -145,7 +145,7 @@ Each step says where to run its commands. LAB MACHINE means a normal terminal on
    It must print an IN SYNC line and the exit code must be 0. If it
    doesn't, fix that first, because the rest of this TODO depends on it.
 
-4. [ROUTER R11] Make drift. Change the description of the branch LAN
+4. On R11: Make drift. Change the description of the branch LAN
    loopback by hand:
 
      configure terminal
@@ -153,14 +153,14 @@ Each step says where to run its commands. LAB MACHINE means a normal terminal on
        description MANUAL-CHANGE
      end
 
-   [ROUTER R10] Add a route that is not in the data model. 192.0.2.0/24 is
+   On R10: Add a route that is not in the data model. 192.0.2.0/24 is
    a documentation range, so it is harmless:
 
      configure terminal
       ip route 192.0.2.0 255.255.255.0 10.10.10.11
      end
 
-5. [LAB MACHINE] Detect it:
+5. On the lab machine: Detect it:
 
      bash drift_check.sh
      echo $?
@@ -172,7 +172,7 @@ Each step says where to run its commands. LAB MACHINE means a normal terminal on
    Terraform found the loopback on R11. It did not find the route on R10.
    Remember that for later.
 
-6. [LAB MACHINE] The router is wrong here, so push the data model back:
+6. On the lab machine: The router is wrong here, so push the data model back:
 
      terraform apply
 
@@ -180,17 +180,17 @@ Each step says where to run its commands. LAB MACHINE means a normal terminal on
    Loopback10 of R11. Type yes. Then run bash drift_check.sh again and
    the result must be IN SYNC.
 
-7. [ROUTER R10] Remove the route that Terraform never saw:
+7. On R10: Remove the route that Terraform never saw:
 
      configure terminal
       no ip route 192.0.2.0 255.255.255.0 10.10.10.11
      end
 
-8. [LAB MACHINE] Save a copy of the file you are about to edit:
+8. On the lab machine: Save a copy of the file you are about to edit:
 
      cp data/bgp.nac.yaml /tmp/bgp.before-todo10.yaml
 
-   [ROUTER R12] Now somebody renames a neighbor on the router, and this
+   On R12: Now somebody renames a neighbor on the router, and this
    time the change is correct:
 
      configure terminal
@@ -198,13 +198,13 @@ Each step says where to run its commands. LAB MACHINE means a normal terminal on
        neighbor 10.255.0.10 description R10-PRIMARY
      end
 
-   [LAB MACHINE] Run bash drift_check.sh. It must say DRIFT. This time the
+   On the lab machine: Run bash drift_check.sh. It must say DRIFT. This time the
    router is right and the data is behind. Edit data/bgp.nac.yaml, and in
    R12's entry change the description of the neighbor 10.255.0.10 from
    R10 to R10-PRIMARY. Only that one line. Run the check again. It must
    say IN SYNC, and the router wasn't touched.
 
-9. [LAB MACHINE] Put the data back and the router with it:
+9. On the lab machine: Put the data back and the router with it:
 
      cp /tmp/bgp.before-todo10.yaml data/bgp.nac.yaml
      terraform apply
@@ -216,7 +216,7 @@ Each step says where to run its commands. LAB MACHINE means a normal terminal on
 
    It must print IN SYNC.
 
-10. [LAB MACHINE] Run: python grading.py
+10. On the lab machine: Run: python grading.py
 ```
 
 ## Test It Yourself (without the grader)
