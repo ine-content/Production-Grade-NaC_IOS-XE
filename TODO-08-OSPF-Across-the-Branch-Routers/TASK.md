@@ -116,7 +116,7 @@ Each step says where to run its commands. LAB MACHINE means a normal terminal on
    and the OSPF process from the Technical Requirements. Follow the shape
    of the Worked Example.
 
-2. [LAB MACHINE] Teach the schema about OSPF. In .schema.yaml, add this
+2. [LAB MACHINE] Add OSPF to the schema. In .schema.yaml, add this
    line to the routing block, next to static_routes:
 
      ospf_processes: list(include('ospf_process'), required=False)
