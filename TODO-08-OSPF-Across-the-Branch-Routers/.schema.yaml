@@ -1,0 +1,47 @@
+iosxe: include('iosxe', required=False)
+---
+iosxe:
+  devices: list(include('device'), required=False)
+device:
+  name: str()
+  host: ip(version=4, required=False)
+  configuration: include('configuration', required=False)
+configuration:
+  system: include('system', required=False)
+  interfaces: include('interfaces', required=False)
+  routing: include('routing', required=False)
+  access_lists: include('access_lists', required=False)
+system:
+  hostname: str(required=False)
+  ip_routing: bool(required=False)
+  ip_domain_name: str(required=False)
+  ip_domain_lookup: bool(required=False)
+interfaces:
+  loopbacks: list(include('loopback'), required=False)
+loopback:
+  id: int(min=0)
+  description: str(required=False)
+  ipv4: include('ipv4', required=False)
+ipv4:
+  address: ip(version=4, required=False)
+  address_mask: ip(version=4, required=False)
+  access_group_in: str(required=False)
+routing:
+  static_routes: list(include('static_route'), required=False)
+static_route:
+  prefix: ip(version=4)
+  mask: ip(version=4)
+  next_hops: list(include('next_hop'))
+next_hop:
+  ip: ip(version=4)
+access_lists:
+  standard: list(include('standard_acl'), required=False)
+standard_acl:
+  name: str()
+  entries: list(include('standard_entry'))
+standard_entry:
+  sequence: int(min=1, max=2147483647)
+  action: enum('permit', 'deny')
+  prefix: ip(version=4, required=False)
+  prefix_mask: ip(version=4, required=False)
+  any: bool(required=False)

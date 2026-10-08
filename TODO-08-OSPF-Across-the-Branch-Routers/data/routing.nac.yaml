@@ -1,0 +1,86 @@
+iosxe:
+  devices:
+    - name: R10
+      configuration:
+        interfaces:
+          loopbacks:
+            - id: 0
+              ipv4:
+                access_group_in: LOOPBACK-NET
+        routing:
+          static_routes:
+            - prefix: 10.255.0.11
+              mask: 255.255.255.255
+              next_hops:
+                - ip: 10.10.10.11
+            - prefix: 10.255.0.12
+              mask: 255.255.255.255
+              next_hops:
+                - ip: 10.10.10.12
+        access_lists:
+          standard:
+            - name: LOOPBACK-NET
+              entries:
+                - sequence: 10
+                  action: permit
+                  prefix: 10.255.0.0
+                  prefix_mask: 0.0.0.255
+                - sequence: 20
+                  action: deny
+                  any: true
+    - name: R11
+      configuration:
+        interfaces:
+          loopbacks:
+            - id: 0
+              ipv4:
+                access_group_in: LOOPBACK-NET
+        routing:
+          static_routes:
+            - prefix: 10.255.0.10
+              mask: 255.255.255.255
+              next_hops:
+                - ip: 10.10.10.10
+            - prefix: 10.255.0.12
+              mask: 255.255.255.255
+              next_hops:
+                - ip: 10.10.10.12
+        access_lists:
+          standard:
+            - name: LOOPBACK-NET
+              entries:
+                - sequence: 10
+                  action: permit
+                  prefix: 10.255.0.0
+                  prefix_mask: 0.0.0.255
+                - sequence: 20
+                  action: deny
+                  any: true
+    - name: R12
+      configuration:
+        interfaces:
+          loopbacks:
+            - id: 0
+              ipv4:
+                access_group_in: LOOPBACK-NET
+        routing:
+          static_routes:
+            - prefix: 10.255.0.10
+              mask: 255.255.255.255
+              next_hops:
+                - ip: 10.10.10.10
+            - prefix: 10.255.0.11
+              mask: 255.255.255.255
+              next_hops:
+                - ip: 10.10.10.11
+        access_lists:
+          standard:
+            - name: LOOPBACK-NET
+              entries:
+                - sequence: 10
+                  action: permit
+                  prefix: 10.255.0.0
+                  prefix_mask: 0.0.0.255
+                - sequence: 20
+                  action: deny
+                  any: true
