@@ -4,7 +4,7 @@
 
 ```
 ✓ Adding a new feature to the data model in its own file
-✓ Teaching the schema about the new keys
+✓ Adding the new keys to the schema
 ✓ A rule that checks references: an ACL a device uses must exist
 ✓ Static routes and standard ACLs in the nac-iosxe model
 ✓ Carrying Terraform's record from one TODO folder to the next
@@ -119,7 +119,7 @@ Each step says where to run its commands. LAB MACHINE means a normal terminal on
    routes, the ACL, and the loopback binding from the Technical
    Requirements. Follow the shape of the Worked Example.
 
-2. [LAB MACHINE] Teach the schema the new keys. Open .schema.yaml and add
+2. [LAB MACHINE] Add the new keys to the schema. Open .schema.yaml and add
    the blocks below. Fill in each ... with the right validator:
 
      configuration:
