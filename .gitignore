@@ -6,4 +6,5 @@ offline-bundle/
 __pycache__/
 merged*.yaml
 drift-plan.txt
+test-results/
 *.pyc
