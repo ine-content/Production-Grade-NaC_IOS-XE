@@ -121,9 +121,18 @@ Change the path if you put the course folder somewhere else.
    fires. A clear message is still worth writing, because it is what an
    engineer reads when the rule fails.
 
-3. Rule 102. Go through every loopback of every device. Report a loopback
-   whose mask is not 255.255.255.255, and report an address that an earlier
-   loopback already used:
+3. Rule 102. Every loopback must follow two rules:
+
+     a) the mask must be /32 (255.255.255.255)
+     b) the Loopback 0 address must be unique to each device. The rule goes
+        through every loopback, so any other loopback you add later
+        (Loopback10 in TODO 08) must be unique too
+
+   Check every loopback on every device. Add one message to results for each
+   rule it breaks. The dictionary "seen" remembers each address and which
+   loopback used it first, so you can spot an address that comes up twice.
+
+   Fill in the blanks:
 
      from nac_validate import RuleBase
 
