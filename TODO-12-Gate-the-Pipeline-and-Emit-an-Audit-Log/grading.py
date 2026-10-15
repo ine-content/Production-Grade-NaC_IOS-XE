@@ -284,15 +284,17 @@ PROBLEMS[4] = (
 )
 EXPECTED[4] = (
     "Rule 101 - a device's hostname must equal its device name.\n"
-    "Rule 102 - no IPv4 address (device host or any loopback) may be used by more than one place.\n"
+    "Rule 102 - every loopback address must be unique across all devices, and every loopback\n"
+    "mask must be 255.255.255.255 (a /32).\n"
     "Both rules: no violations on the real data; a violation of exactly the matching rule\n"
-    "when we inject a hostname mismatch or a duplicated address."
+    "when we inject a hostname mismatch, a duplicated loopback address or a loopback that is not a /32."
 )
 HINTS[4] = (
     "Each rule is its own .py file in rules/ with one class named Rule(RuleBase). match() gets\n"
     "the fully merged data and returns a list of strings - an empty list means no violation.\n"
-    "For 102, collect every address into a dict {address: [owners]}, then report any address\n"
-    "that has more than one owner."
+    "For 102, go through every loopback of every device. Remember each address in a dict\n"
+    "{address: loopback}. Report a loopback whose mask is not 255.255.255.255, and report an\n"
+    "address that is already in the dict."
 )
 SOLUTIONS[4] = """# rules/101_hostname_matches_name.py
 from nac_validate import RuleBase
@@ -322,28 +324,26 @@ from nac_validate import RuleBase
 
 class Rule(RuleBase):
     id = "102"
-    description = "No IPv4 address may be used more than once"
+    description = "Every loopback address must be unique and use a /32 mask"
     severity = "HIGH"
 
     @classmethod
     def match(cls, data):
-        users = {}
+        results = []
+        seen = {}  # address -> the loopback that used it first
         for device in data.get("iosxe", {}).get("devices", []):
-            pairs = []
-            if device.get("host"):
-                pairs.append(("host", device["host"]))
             loopbacks = device.get("configuration", {}).get("interfaces", {}).get("loopbacks", [])
             for loopback in loopbacks:
+                label = device["name"] + " Loopback" + str(loopback["id"])
                 address = loopback.get("ipv4", {}).get("address")
+                mask = loopback.get("ipv4", {}).get("address_mask")
                 if address:
-                    pairs.append((f"loopback{loopback.get('id')}", address))
-            for where, address in pairs:
-                users.setdefault(address, []).append(f"{device['name']}.{where}")
-        return [
-            f"address {address} is used by {', '.join(owners)}"
-            for address, owners in users.items()
-            if len(owners) > 1
-        ]
+                    if mask != "255.255.255.255":
+                        results.append(label + " mask is " + str(mask) + ", it must be 255.255.255.255")
+                    if address in seen:
+                        results.append(address + " is used by " + seen[address] + " and " + label)
+                    seen[address] = label
+        return results
 """
 
 PROBLEMS[5] = (
@@ -1144,18 +1144,14 @@ def _semantic_mutations():
         lo = _device(devices, "R11")["configuration"]["interfaces"]["loopbacks"][0]
         lo["ipv4"]["address"] = EXPECTED_DEVICES["R10"]["loopback0"]
 
-    def duplicate_host(devices, common):
-        _device(devices, "R12")["host"] = EXPECTED_DEVICES["R11"]["host"]
-
-    def loopback_reuses_host(devices, common):
+    def loopback_not_a_32(devices, common):
         lo = _device(devices, "R12")["configuration"]["interfaces"]["loopbacks"][0]
-        lo["ipv4"]["address"] = EXPECTED_DEVICES["R10"]["host"]
+        lo["ipv4"]["address_mask"] = "255.255.255.0"
 
     return [
         ("hostname does not match name", wrong_hostname, "101"),
         ("two loopbacks share an address", duplicate_loopback, "102"),
-        ("two devices share a host IP", duplicate_host, "102"),
-        ("a loopback reuses a management IP", loopback_reuses_host, "102"),
+        ("a loopback is not a /32", loopback_not_a_32, "102"),
     ]
 
 

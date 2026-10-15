@@ -20,6 +20,7 @@ Requires: Python 3.10+, and the packages in requirements.txt
 """
 
 import copy
+import datetime
 import json
 import os
 import re
@@ -107,6 +108,8 @@ SUCCESS_MESSAGES = {
     8: "OSPF is modelled, validated by schema and rules 101 to 104, and the routers run it as described.",
     9: "BGP is modelled, validated by schema and rules 101 to 105, and the three routers peer as described.",
     10: "Drift is detected by drift_check.sh, reconciled both ways, and the routers match the data model again.",
+    11: "The tests are generated from the data model and the live routers pass every one of them.",
+    12: "The pipeline gates every change, applies only with approval, and records each stage in the audit log.",
 }
 
 FAIL_MESSAGES = {
@@ -120,6 +123,8 @@ FAIL_MESSAGES = {
     8: "The pipeline cannot continue because OSPF is not modelled, validated and applied yet.",
     9: "The pipeline cannot continue because BGP is not modelled, validated and applied yet.",
     10: "The pipeline cannot continue because drift cannot be detected and reconciled yet.",
+    11: "The pipeline cannot continue because the live state is not yet verified by tests generated from the data model.",
+    12: "The pipeline cannot continue because changes are not yet gated and recorded in an audit log.",
 }
 
 PROBLEMS = {}
@@ -279,15 +284,17 @@ PROBLEMS[4] = (
 )
 EXPECTED[4] = (
     "Rule 101 - a device's hostname must equal its device name.\n"
-    "Rule 102 - no IPv4 address (device host or any loopback) may be used by more than one place.\n"
+    "Rule 102 - every loopback address must be unique across all devices, and every loopback\n"
+    "mask must be 255.255.255.255 (a /32).\n"
     "Both rules: no violations on the real data; a violation of exactly the matching rule\n"
-    "when we inject a hostname mismatch or a duplicated address."
+    "when we inject a hostname mismatch, a duplicated loopback address or a loopback that is not a /32."
 )
 HINTS[4] = (
     "Each rule is its own .py file in rules/ with one class named Rule(RuleBase). match() gets\n"
     "the fully merged data and returns a list of strings - an empty list means no violation.\n"
-    "For 102, collect every address into a dict {address: [owners]}, then report any address\n"
-    "that has more than one owner."
+    "For 102, go through every loopback of every device. Remember each address in a dict\n"
+    "{address: loopback}. Report a loopback whose mask is not 255.255.255.255, and report an\n"
+    "address that is already in the dict."
 )
 SOLUTIONS[4] = """# rules/101_hostname_matches_name.py
 from nac_validate import RuleBase
@@ -317,28 +324,26 @@ from nac_validate import RuleBase
 
 class Rule(RuleBase):
     id = "102"
-    description = "No IPv4 address may be used more than once"
+    description = "Every loopback address must be unique and use a /32 mask"
     severity = "HIGH"
 
     @classmethod
     def match(cls, data):
-        users = {}
+        results = []
+        seen = {}  # address -> the loopback that used it first
         for device in data.get("iosxe", {}).get("devices", []):
-            pairs = []
-            if device.get("host"):
-                pairs.append(("host", device["host"]))
             loopbacks = device.get("configuration", {}).get("interfaces", {}).get("loopbacks", [])
             for loopback in loopbacks:
+                label = device["name"] + " Loopback" + str(loopback["id"])
                 address = loopback.get("ipv4", {}).get("address")
+                mask = loopback.get("ipv4", {}).get("address_mask")
                 if address:
-                    pairs.append((f"loopback{loopback.get('id')}", address))
-            for where, address in pairs:
-                users.setdefault(address, []).append(f"{device['name']}.{where}")
-        return [
-            f"address {address} is used by {', '.join(owners)}"
-            for address, owners in users.items()
-            if len(owners) > 1
-        ]
+                    if mask != "255.255.255.255":
+                        results.append(label + " mask is " + str(mask) + ", it must be 255.255.255.255")
+                    if address in seen:
+                        results.append(address + " is used by " + seen[address] + " and " + label)
+                    seen[address] = label
+        return results
 """
 
 PROBLEMS[5] = (
@@ -1139,18 +1144,14 @@ def _semantic_mutations():
         lo = _device(devices, "R11")["configuration"]["interfaces"]["loopbacks"][0]
         lo["ipv4"]["address"] = EXPECTED_DEVICES["R10"]["loopback0"]
 
-    def duplicate_host(devices, common):
-        _device(devices, "R12")["host"] = EXPECTED_DEVICES["R11"]["host"]
-
-    def loopback_reuses_host(devices, common):
+    def loopback_not_a_32(devices, common):
         lo = _device(devices, "R12")["configuration"]["interfaces"]["loopbacks"][0]
-        lo["ipv4"]["address"] = EXPECTED_DEVICES["R10"]["host"]
+        lo["ipv4"]["address_mask"] = "255.255.255.0"
 
     return [
         ("hostname does not match name", wrong_hostname, "101"),
         ("two loopbacks share an address", duplicate_loopback, "102"),
-        ("two devices share a host IP", duplicate_host, "102"),
-        ("a loopback reuses a management IP", loopback_reuses_host, "102"),
+        ("a loopback is not a /32", loopback_not_a_32, "102"),
     ]
 
 
@@ -1848,10 +1849,551 @@ def check_todo_10():
     return code == 0 if TOTAL_TODOS == 10 else code in (0, 2)
 
 
+TESTS_DIR = ROOT / "tests"
+TEST_FILE = TESTS_DIR / "verify_routers.robot"
+
+PROBLEMS[11] = (
+    "One of these is not right yet. tests/verify_routers.robot must be a nac-test template that\n"
+    "turns the data model into Robot tests: per router a hostname test, per loopback a test, and per\n"
+    "BGP neighbor a test that the session is established with the right AS. The names, hosts and\n"
+    "values must come from the data, not be typed in. Login details come from the environment. And\n"
+    "the tests must pass against the live routers."
+)
+EXPECTED[11] = (
+    "15 tests: '<router> hostname' (3), '<router> Loopback<id>' (6), '<router> BGP neighbor <ip>' (6).\n"
+    "hostname -> GET Cisco-IOS-XE-native:native/hostname, equals the hostname in the data.\n"
+    "Loopback -> GET .../interface/Loopback=<id>, contains the loopback address from the data.\n"
+    "BGP neighbor -> GET Cisco-IOS-XE-bgp-oper:bgp-state-data/neighbors, state fsm-established,\n"
+    "AS equal to remote_as. Add a loopback or remove a neighbor in the data and the tests follow.\n"
+    "Login from %{IOSXE_USERNAME} and %{IOSXE_PASSWORD}. nac-test exits 0 against the routers."
+)
+HINTS[11] = (
+    "Three nested Jinja loops: devices, then device.configuration.interfaces.loopbacks, then\n"
+    "device.configuration.routing.bgp.neighbors. Inside them {{ device.name }}, {{ device.host }},\n"
+    "{{ loopback.id }}, {{ loopback.ipv4.address }}, {{ neighbor.ip }} and {{ neighbor.remote_as }}\n"
+    "fill the blanks. Robot needs at least two spaces between a keyword and its arguments. If a live\n"
+    "test fails, run curl against that router first (step 4) to see what it really returns."
+)
+SOLUTIONS[11] = """# tests/verify_routers.robot
+*** Settings ***
+Documentation     The live routers match the data model
+Library           RequestsLibrary
+
+*** Keywords ***
+Router Get
+    [Documentation]    GET one RESTCONF path from a router and return the data under its top-level key.
+    [Arguments]    ${host}    ${path}
+    ${auth}=    Create List    %{IOSXE_USERNAME}    %{IOSXE_PASSWORD}
+    Create Session    ${host}    https://${host}    auth=${auth}    verify=${FALSE}
+    ${headers}=    Create Dictionary    Accept=application/yang-data+json
+    ${response}=    GET On Session    ${host}    /restconf/data/${path}    headers=${headers}    expected_status=200
+    ${data}=    Evaluate    next(iter($response.json().values()))
+    RETURN    ${data}
+
+*** Test Cases ***
+{% for device in iosxe.devices | default([]) %}
+{{ device.name }} hostname
+    [Tags]    iosxe    system
+    ${hostname}=    Router Get    {{ device.host }}    Cisco-IOS-XE-native:native/hostname
+    Should Be Equal    ${hostname}    {{ device.configuration.system.hostname }}
+
+{% for loopback in device.configuration.interfaces.loopbacks | default([]) %}
+{{ device.name }} Loopback{{ loopback.id }}
+    [Tags]    iosxe    interfaces
+    ${entries}=    Router Get    {{ device.host }}    Cisco-IOS-XE-native:native/interface/Loopback={{ loopback.id }}
+    ${text}=    Convert To String    ${entries}[0]
+    Should Contain    ${text}    {{ loopback.ipv4.address }}
+
+{% endfor %}
+{% for neighbor in device.configuration.routing.bgp.neighbors | default([]) %}
+{{ device.name }} BGP neighbor {{ neighbor.ip }}
+    [Tags]    iosxe    bgp
+    ${neighbors}=    Router Get    {{ device.host }}    Cisco-IOS-XE-bgp-oper:bgp-state-data/neighbors
+    ${found}=    Evaluate    [n for n in $neighbors['neighbor'] if n['neighbor-id'] == '{{ neighbor.ip }}']
+    Should Not Be Empty    ${found}    no BGP session to {{ neighbor.ip }} on {{ device.name }}
+    Should Be Equal    ${found}[0][session-state]    fsm-established
+    Should Be Equal As Integers    ${found}[0][as]    {{ neighbor.remote_as }}
+
+{% endfor %}
+{% endfor %}
+"""
+
+
+def _nac_test_exe():
+    return shutil.which("nac-test")
+
+
+def _expected_tests(hosts=None, loopbacks_extra=None, drop_neighbor=None):
+    """name -> list of substrings the rendered test body must contain."""
+    hosts = hosts or {}
+    tests = {}
+    for name, info in EXPECTED_DEVICES.items():
+        host = hosts.get(name, info["host"])
+        tests[f"{name} hostname"] = [host, "Cisco-IOS-XE-native:native/hostname", name]
+        lo = {0: info["loopback0"], 10: EXPECTED_BRANCH_LAN[name]}
+        lo.update((loopbacks_extra or {}).get(name, {}))
+        for lid, address in lo.items():
+            tests[f"{name} Loopback{lid}"] = [host, f"interface/Loopback={lid}", address]
+        for ip in sorted(EXPECTED_BGP_PEERS[name]):
+            if drop_neighbor == (name, ip):
+                continue
+            tests[f"{name} BGP neighbor {ip}"] = [
+                host, "bgp-state-data/neighbors", ip, "fsm-established", str(EXPECTED_BGP_AS),
+            ]
+    return tests
+
+
+def _render_robot(data_dir, workdir):
+    """Render the template with nac-test and return {test name: body text}, or None on failure."""
+    exe = _nac_test_exe()
+    if exe is None or not TEST_FILE.exists():
+        return None
+    out = Path(workdir) / "rendered"
+    env = dict(os.environ)
+    env.setdefault("IOSXE_USERNAME", "render-only")
+    env.setdefault("IOSXE_PASSWORD", "render-only")
+    try:
+        proc = subprocess.run(
+            [exe, "-d", str(data_dir), "-t", str(TESTS_DIR), "-o", str(out), "--render-only"],
+            capture_output=True, text=True, timeout=300, env=env,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    files = sorted(out.rglob("verify_routers.robot")) if out.exists() else []
+    if proc.returncode != 0 or not files:
+        return None
+
+    tests, section, current = {}, None, None
+    for line in files[0].read_text(encoding="utf-8").splitlines():
+        if line.startswith("***"):
+            section = line.strip("* ").lower()
+            current = None
+            continue
+        if section not in ("test cases", "test case"):
+            continue
+        if line.strip() and not line[0].isspace() and not line.startswith("#"):
+            current = line.strip()
+            tests[current] = ""
+        elif current is not None:
+            tests[current] += line + "\n"
+    return tests
+
+
+def _tests_match(rendered, expected):
+    if rendered is None or set(rendered) != set(expected):
+        return False
+    return all(all(piece in rendered[name] for piece in pieces) for name, pieces in expected.items())
+
+
+def _robot_mutations():
+    """(label, mutate(data_dir), expected tests) - the rendered tests must follow the data."""
+
+    def new_loopback(d):
+        path = d / "ospf.nac.yaml"
+        model = _load_yaml(path)
+        _device(model, "R11")["configuration"]["interfaces"]["loopbacks"].append(
+            {"id": 20, "description": "GUEST", "ipv4": {"address": "172.16.20.1", "address_mask": "255.255.255.255"}}
+        )
+        path.write_text(yaml.safe_dump(model, sort_keys=False), encoding="utf-8")
+
+    def lost_neighbor(d):
+        path = d / "bgp.nac.yaml"
+        model = _load_yaml(path)
+        _bgp_of(model, "R12")["neighbors"].pop(0)
+        path.write_text(yaml.safe_dump(model, sort_keys=False), encoding="utf-8")
+
+    def moved_router(d):
+        path = d / "devices.nac.yaml"
+        model = _load_yaml(path)
+        _device(model, "R12")["host"] = "10.10.10.99"
+        path.write_text(yaml.safe_dump(model, sort_keys=False), encoding="utf-8")
+
+    return [
+        ("a loopback added to R11 -> a new test appeared", new_loopback,
+         _expected_tests(loopbacks_extra={"R11": {20: "172.16.20.1"}})),
+        ("a BGP neighbor removed from R12 -> its test disappeared", lost_neighbor,
+         _expected_tests(drop_neighbor=("R12", "10.255.0.10"))),
+        ("R12 given another management address -> its tests followed", moved_router,
+         _expected_tests(hosts={"R12": "10.10.10.99"})),
+    ]
+
+
+def _robot_file_ok():
+    if not TEST_FILE.exists():
+        return False
+    text = TEST_FILE.read_text(encoding="utf-8")
+    if "%{IOSXE_USERNAME}" not in text or "%{IOSXE_PASSWORD}" not in text:
+        return False
+    stripped = text.replace("%{IOSXE_USERNAME}", "").replace("%{IOSXE_PASSWORD}", "")
+    return not re.search(r"(?i)password|secret|token", stripped)
+
+
+def check_todo_11():
+    if not _robot_file_ok() or _nac_test_exe() is None:
+        return False
+
+    with tempfile.TemporaryDirectory() as tmp:
+        data = _data_dir_upto(tmp, 11)
+        if not _tests_match(_render_robot(data, tmp), _expected_tests()):
+            return False
+
+    for _label, mutate, expected in _robot_mutations():
+        with tempfile.TemporaryDirectory() as tmp:
+            data = _data_dir_upto(tmp, 11)
+            mutate(data)
+            if not _tests_match(_render_robot(data, tmp), expected):
+                return False
+
+    # syntax: Robot's dry run checks every keyword without contacting a router
+    with tempfile.TemporaryDirectory() as tmp:
+        data = _data_dir_upto(tmp, 11)
+        env = dict(os.environ)
+        env.setdefault("IOSXE_USERNAME", "dry-run")
+        env.setdefault("IOSXE_PASSWORD", "dry-run")
+        try:
+            proc = subprocess.run(
+                [_nac_test_exe(), "-d", str(data), "-t", str(TESTS_DIR), "-o", str(Path(tmp) / "dry"), "--dry-run"],
+                capture_output=True, text=True, timeout=300, env=env,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+        if proc.returncode != 0:
+            return False
+
+    # the live run: the routers must pass every test
+    if not os.environ.get("IOSXE_USERNAME") or not os.environ.get("IOSXE_PASSWORD"):
+        return False
+    with tempfile.TemporaryDirectory() as tmp:
+        data = _data_dir_upto(tmp, 11)
+        try:
+            proc = subprocess.run(
+                [_nac_test_exe(), "-d", str(data), "-t", str(TESTS_DIR), "-o", str(Path(tmp) / "live")],
+                capture_output=True, text=True, timeout=900,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+        return proc.returncode == 0
+
+
+PIPELINE_FILE = ROOT / "pipeline.py"
+AUDIT_FILE = ROOT / "audit.log"
+AUDIT_FIELDS = {"time", "run", "user", "stage", "command", "exit_code", "result"}
+STAGE_ORDER = ["validate", "plan", "apply", "verify"]
+
+PROBLEMS[12] = (
+    "One of these is not right yet. pipeline.py must run four stages in order, validate, plan, apply\n"
+    "and verify, and stop at the first failure. Apply may only run when --apply was given and the plan\n"
+    "found changes. Every stage, including skipped ones, must be written to audit.log as one JSON line\n"
+    "with time, run, user, stage, command, exit_code and result. And audit.log must show that you ran\n"
+    "it for real: a run stopped by validation, and a run that applied a change."
+)
+EXPECTED[12] = (
+    "validate -> nac-validate data -s .schema.yaml -r rules; fail stops everything.\n"
+    "plan -> terraform plan -detailed-exitcode; 0 PASS, 2 CHANGES, anything else FAIL.\n"
+    "apply -> terraform apply -auto-approve, only with --apply and only after CHANGES; else SKIPPED.\n"
+    "verify -> nac-test -d data -t tests -o test-results; 0 PASS, otherwise FAIL.\n"
+    "After a failure every later stage is logged SKIPPED with exit_code null. Exit 1 on failure, else 0.\n"
+    "audit.log is appended to, one JSON object per line, no credentials in it.\n"
+    "terraform plan -detailed-exitcode exits 0."
+)
+HINTS[12] = (
+    "Loop over STAGES. At the top of the loop, decide whether to skip: the pipeline already failed, or\n"
+    "this is the apply stage and it is not approved or there are no changes. A skipped stage still calls\n"
+    "record, with None as the exit code. Plan is the one stage where exit code 2 is not a failure. If the\n"
+    "audit.log check fails, run the pipeline for real as the steps describe: once with broken data, once\n"
+    "with --apply after making drift."
+)
+SOLUTIONS[12] = """# pipeline.py
+#!/usr/bin/env python3
+# Run the NaC pipeline: validate, plan, apply (only when approved), verify. Write an audit log.
+import json
+import os
+import subprocess
+import sys
+import uuid
+from datetime import datetime, timezone
+
+LOG = "audit.log"
+RUN = uuid.uuid4().hex[:8]
+APPROVED = "--apply" in sys.argv[1:]
+
+STAGES = [
+    ("validate", ["nac-validate", "data", "-s", ".schema.yaml", "-r", "rules"]),
+    ("plan", ["terraform", "plan", "-detailed-exitcode", "-no-color"]),
+    ("apply", ["terraform", "apply", "-auto-approve", "-no-color"]),
+    ("verify", ["nac-test", "-d", "data", "-t", "tests", "-o", "test-results"]),
+]
+
+
+def record(stage, command, exit_code, result):
+    entry = {
+        "time": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "run": RUN,
+        "user": os.environ.get("USER", "unknown"),
+        "stage": stage,
+        "command": " ".join(command),
+        "exit_code": exit_code,
+        "result": result,
+    }
+    with open(LOG, "a", encoding="utf-8") as log:
+        log.write(json.dumps(entry) + "\n")
+    print(f"{stage:<9} {result}")
+
+
+def main():
+    failed = False
+    changes_waiting = False
+    for stage, command in STAGES:
+        if failed or (stage == "apply" and not (APPROVED and changes_waiting)):
+            record(stage, command, None, "SKIPPED")
+            continue
+        code = subprocess.run(command).returncode
+        if stage == "plan" and code == 2:
+            changes_waiting = True
+            result = "CHANGES"
+        elif code == 0:
+            result = "PASS"
+        else:
+            result = "FAIL"
+            failed = True
+        record(stage, command, code, result)
+    if failed:
+        print("Pipeline stopped. See audit.log.")
+    elif changes_waiting and not APPROVED:
+        print("Changes are waiting. Run again with --apply to push them.")
+    sys.exit(1 if failed else 0)
+
+
+if __name__ == "__main__":
+    main()
+"""
+
+
+def _write_stubs(directory):
+    """Fake nac-validate, terraform and nac-test. Each logs its call and exits with a code from the environment."""
+    script = (
+        "#!/bin/sh\n"
+        'name=$(basename "$0")\n'
+        'echo "$name $@" >> "$STUB_CALLS"\n'
+        'case "$name" in\n'
+        '  nac-validate) rc=$STUB_VALIDATE_RC;;\n'
+        '  terraform) case "$1" in plan) rc=$STUB_PLAN_RC;; apply) rc=$STUB_APPLY_RC;; *) rc=0;; esac;;\n'
+        '  nac-test) rc=$STUB_TEST_RC;;\n'
+        "esac\n"
+        'exit ${rc:-0}\n'
+    )
+    for name in ("nac-validate", "terraform", "nac-test"):
+        path = Path(directory) / name
+        path.write_text(script, encoding="utf-8")
+        path.chmod(0o755)
+
+
+def _pipeline_run(workdir, args=(), validate=0, plan=0, apply=0, test=0, runs=1):
+    """Run pipeline.py against the stubs. Returns (exit code, log entries, calls) or None."""
+    stubs = Path(workdir) / "bin"
+    stubs.mkdir()
+    _write_stubs(stubs)
+    run_dir = Path(workdir) / "run"
+    run_dir.mkdir()
+    shutil.copy(PIPELINE_FILE, run_dir / "pipeline.py")
+    calls = Path(workdir) / "calls.log"
+    env = dict(os.environ)
+    env.update({
+        "PATH": f"{stubs}{os.pathsep}{env.get('PATH', '')}",
+        "STUB_CALLS": str(calls),
+        "STUB_VALIDATE_RC": str(validate), "STUB_PLAN_RC": str(plan),
+        "STUB_APPLY_RC": str(apply), "STUB_TEST_RC": str(test),
+        "IOSXE_PASSWORD": "Never-Log-This-1",
+    })
+    code = None
+    for _ in range(runs):
+        try:
+            proc = subprocess.run(
+                [sys.executable, "pipeline.py", *args], cwd=run_dir, env=env,
+                capture_output=True, text=True, timeout=60,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        code = proc.returncode
+    log = run_dir / "audit.log"
+    entries = []
+    if log.exists():
+        try:
+            entries = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines() if line.strip()]
+        except ValueError:
+            return None
+        if "Never-Log-This-1" in log.read_text(encoding="utf-8"):
+            return None
+    called = calls.read_text(encoding="utf-8").splitlines() if calls.exists() else []
+    return code, entries, called
+
+
+def _stage_results(entries):
+    return [(e.get("stage"), e.get("result")) for e in entries]
+
+
+def _pipeline_scenarios_ok():
+    results = {}
+
+    def go(name, **kw):
+        with tempfile.TemporaryDirectory() as tmp:
+            results[name] = _pipeline_run(tmp, **kw)
+        return results[name]
+
+    # every stage passes, no approval: apply is skipped, nothing is pushed
+    r = go("clean")
+    if r is None or r[0] != 0:
+        return False
+    if _stage_results(r[1]) != [("validate", "PASS"), ("plan", "PASS"), ("apply", "SKIPPED"), ("verify", "PASS")]:
+        return False
+    if any(c.startswith("terraform apply") for c in r[2]):
+        return False
+    if [c.split()[0] if c.split()[0] != "terraform" else "terraform " + c.split()[1] for c in r[2]] != [
+        "nac-validate", "terraform plan", "nac-test",
+    ]:
+        return False
+    ok_fields = all(set(e) == AUDIT_FIELDS for e in r[1])
+    if not ok_fields or any(e["user"] in ("", None) for e in r[1]) or len({e["run"] for e in r[1]}) != 1:
+        return False
+    try:
+        for e in r[1]:
+            datetime.datetime.fromisoformat(str(e["time"]).replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    skipped = [e for e in r[1] if e["result"] == "SKIPPED"]
+    if any(e["exit_code"] is not None for e in skipped) or any(e["exit_code"] != 0 for e in r[1] if e["result"] == "PASS"):
+        return False
+    # the commands the stages ran
+    calls = r[2]
+    if not ("nac-validate data -s .schema.yaml -r rules" in calls[0]):
+        return False
+    if "-detailed-exitcode" not in calls[1] or not all(x in calls[2].split() for x in ("-d", "data", "-t", "tests", "-o")):
+        return False
+
+    # changes waiting but not approved: recorded, not applied
+    r = go("pending", plan=2)
+    if r is None or r[0] != 0:
+        return False
+    if _stage_results(r[1]) != [("validate", "PASS"), ("plan", "CHANGES"), ("apply", "SKIPPED"), ("verify", "PASS")]:
+        return False
+    if r[1][1]["exit_code"] != 2 or any(c.startswith("terraform apply") for c in r[2]):
+        return False
+
+    # approved and changes waiting: applied, then verified, in order
+    r = go("approved", args=["--apply"], plan=2)
+    if r is None or r[0] != 0:
+        return False
+    if _stage_results(r[1]) != [("validate", "PASS"), ("plan", "CHANGES"), ("apply", "PASS"), ("verify", "PASS")]:
+        return False
+    if [c.split()[0] if c.split()[0] != "terraform" else "terraform " + c.split()[1] for c in r[2]] != [
+        "nac-validate", "terraform plan", "terraform apply", "nac-test",
+    ] or "-auto-approve" not in r[2][2]:
+        return False
+
+    # approved but nothing to apply: still skipped
+    r = go("approved-clean", args=["--apply"])
+    if r is None or r[0] != 0 or _stage_results(r[1])[2] != ("apply", "SKIPPED"):
+        return False
+    if any(c.startswith("terraform apply") for c in r[2]):
+        return False
+
+    # the gate: each failure stops everything after it
+    r = go("validate-fails", args=["--apply"], validate=1, plan=2)
+    if r is None or r[0] != 1:
+        return False
+    if _stage_results(r[1]) != [("validate", "FAIL"), ("plan", "SKIPPED"), ("apply", "SKIPPED"), ("verify", "SKIPPED")]:
+        return False
+    if r[1][0]["exit_code"] != 1 or r[2] != [r[2][0]]:
+        return False
+
+    r = go("plan-errors", args=["--apply"], plan=1)
+    if r is None or r[0] != 1:
+        return False
+    if _stage_results(r[1]) != [("validate", "PASS"), ("plan", "FAIL"), ("apply", "SKIPPED"), ("verify", "SKIPPED")]:
+        return False
+    if any(c.startswith("nac-test") or c.startswith("terraform apply") for c in r[2]):
+        return False
+
+    r = go("apply-fails", args=["--apply"], plan=2, apply=1)
+    if r is None or r[0] != 1:
+        return False
+    if _stage_results(r[1]) != [("validate", "PASS"), ("plan", "CHANGES"), ("apply", "FAIL"), ("verify", "SKIPPED")]:
+        return False
+
+    r = go("verify-fails", test=3)
+    if r is None or r[0] != 1:
+        return False
+    if _stage_results(r[1]) != [("validate", "PASS"), ("plan", "PASS"), ("apply", "SKIPPED"), ("verify", "FAIL")]:
+        return False
+    if r[1][3]["exit_code"] != 3:
+        return False
+
+    # the log is appended to: two runs, two run ids, eight lines
+    r = go("twice", runs=2)
+    if r is None or len(r[1]) != 8 or len({e["run"] for e in r[1]}) != 2:
+        return False
+    return True
+
+
+def _pipeline_source_ok():
+    if not PIPELINE_FILE.exists():
+        return False
+    text = PIPELINE_FILE.read_text(encoding="utf-8")
+    stripped = text.replace("IOSXE_USERNAME", "").replace("IOSXE_PASSWORD", "")
+    if re.search(r"(?i)password|secret|token|C1sc0", stripped):
+        return False
+    return True
+
+
+def _real_audit_log_ok():
+    """audit.log must show the pipeline ran for real: a gate stop and a run that applied a change."""
+    if not AUDIT_FILE.exists():
+        return False
+    runs = {}
+    try:
+        for line in AUDIT_FILE.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            entry = json.loads(line)
+            if set(entry) != AUDIT_FIELDS:
+                return False
+            runs.setdefault(entry["run"], []).append(entry)
+    except ValueError:
+        return False
+    secret = os.environ.get("IOSXE_PASSWORD", "")
+    if len(secret) >= 6 and secret in AUDIT_FILE.read_text(encoding="utf-8"):
+        return False
+
+    gate_stop = applied = False
+    for entries in runs.values():
+        outcome = _stage_results(entries)
+        if outcome == [("validate", "FAIL"), ("plan", "SKIPPED"), ("apply", "SKIPPED"), ("verify", "SKIPPED")]:
+            gate_stop = True
+        if outcome == [("validate", "PASS"), ("plan", "CHANGES"), ("apply", "PASS"), ("verify", "PASS")]:
+            applied = True
+    return gate_stop and applied
+
+
+def check_todo_12():
+    if not _pipeline_source_ok() or not _pipeline_scenarios_ok():
+        return False
+    if not _real_audit_log_ok():
+        return False
+
+    if _terraform_exe() is None or not os.environ.get("IOSXE_USERNAME") or not os.environ.get("IOSXE_PASSWORD"):
+        return False
+    code, _, _ = run_terraform(["init", "-no-color"])
+    if code != 0:
+        return False
+    code, _, _ = run_terraform(["plan", "-detailed-exitcode", "-no-color"], timeout=900)
+    return code == 0
+
+
 CHECKS = {
     1: check_todo_1, 2: check_todo_2, 3: check_todo_3, 4: check_todo_4,
     5: check_todo_5, 6: check_todo_6, 7: check_todo_7, 8: check_todo_8,
     9: check_todo_9, 10: check_todo_10,
+    11: check_todo_11, 12: check_todo_12,
 }
 
 
@@ -1887,6 +2429,8 @@ def print_todo_details(number, statuses):
         8: "[8] OSPF across the branch routers...",
         9: "[9] BGP peering...",
         10: "[10] Detecting and reconciling drift...",
+        11: "[11] Verifying live state with nac-test...",
+        12: "[12] Gating the pipeline and writing the audit log...",
     }
     console.print(titles[number])
     if not statuses[number]:
@@ -1953,6 +2497,21 @@ def print_todo_details(number, statuses):
         console.print("  drift_check.sh -> only ever runs plan (no apply, no destroy)")
         console.print("  BGP neighbor descriptions -> back to R10, R11, R12")
         console.print("  terraform plan -> no changes")
+    elif number == 11:
+        console.print("  tests/verify_routers.robot -> rendered by nac-test from the data model")
+        console.print("  15 tests: 3 hostname, 6 loopback, 6 BGP neighbor, all built from the data")
+        console.print("  login -> read from IOSXE_USERNAME and IOSXE_PASSWORD, none in the file")
+        for label, _, _ in _robot_mutations():
+            console.print(f"  injected: {label}")
+        console.print("  robot dry run -> every keyword resolves")
+        console.print("  live run -> every test passes on R10, R11 and R12")
+    elif number == 12:
+        console.print("  pipeline.py -> validate, plan, apply, verify, in that order")
+        console.print("  gate -> a failed stage stops the rest, which are logged SKIPPED")
+        console.print("  apply -> only with --apply and only when the plan found changes")
+        console.print("  audit.log -> one JSON line per stage, no credentials in it")
+        console.print("  audit.log -> shows a run stopped by validation and a run that applied a change")
+        console.print("  terraform plan -> no changes")
 
 
 def print_todo_progress(statuses):
@@ -2011,7 +2570,7 @@ def feedback(failed):
 
     if answer == "s":
         console.print()
-        lexer = {4: "python", 5: "terraform", 6: "terraform", 7: "text", 8: "text", 9: "text", 10: "bash"}.get(failed, "yaml")
+        lexer = {4: "python", 5: "terraform", 6: "terraform", 7: "text", 8: "text", 9: "text", 10: "bash", 11: "text", 12: "python"}.get(failed, "yaml")
         syntax = Syntax(SOLUTIONS[failed], lexer, theme="ansi_dark", line_numbers=False, word_wrap=True)
         console.print(Panel(syntax, title="Solution", title_align="left", border_style=GREEN, padding=(0, 1)))
         console.print()
@@ -2030,8 +2589,11 @@ def lab_summary(statuses):
         console.print(f"  {percent}% Complete ({completed} of {TOTAL_TODOS} TODOs in this lab)")
         console.print()
         console.print(f"  {todo_label(TOTAL_TODOS)} - {TODO_NAMES[TOTAL_TODOS]} - is complete.")
-        console.print("  Move on to the next lab; everything done here will")
-        console.print("  already be done for you there.")
+        if TOTAL_TODOS == COURSE_TOTAL_TODOS:
+            console.print("  That was the last TODO. The course is finished.")
+        else:
+            console.print("  Move on to the next lab; everything done here will")
+            console.print("  already be done for you there.")
         console.print()
         return
 

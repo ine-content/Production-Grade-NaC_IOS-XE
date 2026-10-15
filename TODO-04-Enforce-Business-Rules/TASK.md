@@ -15,7 +15,7 @@ TODO 01 to TODO 03 are solved in this folder, including `.schema.yaml`. The data
 
 ## Scenario
 
-A schema can't tell that two routers got the same loopback address. Each address is a perfectly valid IPv4 address, so the schema passes it, and the network is still broken. Checks like this are business logic, and `nac-validate` lets you write them as small Python classes.
+A schema can't tell that two routers got the same loopback address, or that a router-ID loopback was given a /24 instead of a /32. Each value is a perfectly valid IPv4 address or mask, so the schema passes it, and the network is still broken. Checks like this are business logic, and `nac-validate` lets you write them as small Python classes.
 
 Rules see the merged model (all the files combined), so they can compare one device with another. A rule returns a list of problems. An empty list means the rule is happy. If any rule returns a problem, `nac-validate` exits with code 1.
 
@@ -24,7 +24,7 @@ You'll write two rules:
 | Rule id | What it enforces |
 |---------|------------------|
 | 101 | A device's `hostname` must equal its device `name` |
-| 102 | No IPv4 address (a device `host` or any loopback address) may appear in more than one place |
+| 102 | Every loopback address must be unique across all devices, and every loopback mask must be `255.255.255.255` (a /32) |
 
 ## Worked Example
 
@@ -100,10 +100,30 @@ Change the path if you put the course folder somewhere else.
                      results.append(...)
              return results
 
-   The hostname is at configuration -> system -> hostname.
+   What goes in each blank:
 
-3. Rule 102. Collect every address along with its owner, then report any
-   address that has more than one owner:
+     id = "..."           the rule number as text, in quotes: "101"
+     description = "..."  one sentence that says what the rule demands,
+                          for example: Device hostname must equal its device name
+     hostname = ...       the hostname of this device. It is at
+                          configuration -> system -> hostname. Follow the
+                          same .get() pattern as the Worked Example, and
+                          leave out the default on the last step so a
+                          missing hostname gives None
+     if ...:              the test for a problem: the hostname is NOT equal
+                          to the device's name. In Python, "not equal" is !=
+     results.append(...)  one message for the problem, as text. Say which
+                          device is wrong and what its hostname is, for
+                          example: R11 has hostname R10. The device name is
+                          device["name"]
+
+   The grader does not read your message, only the rule id and that the rule
+   fires. A clear message is still worth writing, because it is what an
+   engineer reads when the rule fails.
+
+3. Rule 102. Go through every loopback of every device. Report a loopback
+   whose mask is not 255.255.255.255, and report an address that an earlier
+   loopback already used:
 
      from nac_validate import RuleBase
 
@@ -115,18 +135,54 @@ Change the path if you put the course folder somewhere else.
 
          @classmethod
          def match(cls, data):
-             users = {}
+             results = []
+             seen = {}   # address -> the loopback that used it first
              for device in data.get("iosxe", {}).get("devices", []):
-                 # gather the device host and every loopback address
-                 # as (where, address) pairs
-                 pairs = ...
-                 for where, address in pairs:
-                     users.setdefault(address, []).append(f"{device['name']}.{where}")
-             return [... for address, owners in users.items() if ...]
+                 loopbacks = ...
+                 for loopback in loopbacks:
+                     label = ...      # for example "R10 Loopback0"
+                     address = ...
+                     mask = ...
+                     if address:
+                         if ...:      # the mask is not 255.255.255.255
+                             results.append(...)
+                         if ...:      # the address is already in seen
+                             results.append(...)
+                         seen[address] = label
+             return results
 
-   Loopback addresses are at configuration -> interfaces -> loopbacks ->
-   ipv4 -> address. A device might have no loopbacks or no host, so use
-   .get() with a default.
+   What goes in each blank:
+
+     id = "..."           the rule number as text, in quotes: "102"
+     description = "..."  one sentence that says what the rule demands
+     loopbacks = ...      the list of loopbacks of this device. It is at
+                          configuration -> interfaces -> loopbacks. Use
+                          .get() with a default of [] on the last step, so a
+                          device with no loopbacks gives an empty list
+     label = ...          text that names this loopback, for example
+                          "R10 Loopback0". Build it from device["name"] and
+                          loopback["id"]. Use str(...) around the id, because
+                          it is a number
+     address = ...        the loopback's IP address, at ipv4 -> address
+     mask = ...           the loopback's mask, at ipv4 -> address_mask
+                          (use .get() on both, so a loopback with no ipv4
+                          gives None and is skipped by "if address:")
+     if ...:              (first one) the mask is NOT 255.255.255.255. The
+                          mask is text, so compare it with a string
+     results.append(...)  (first one) a message that names the loopback and
+                          its wrong mask, for example:
+                          R12 Loopback0 mask is 255.255.255.0
+     if ...:              (second one) the address is already in seen. The
+                          test for "already in the dictionary" is:
+                          address in seen
+     results.append(...)  (second one) a message that names the address and
+                          both loopbacks, for example:
+                          10.255.0.10 is used by R10 Loopback0 and R11 Loopback0
+                          The first loopback is seen[address]
+
+   Why seen[address] = label comes last: it saves this loopback for the
+   later ones to compare with. If it came first, every loopback would
+   appear to be a duplicate of itself.
 
 4. Save, then run: python grading.py
 ```
@@ -182,8 +238,8 @@ echo $?
 Expect exit code `1` and:
 
 ```
-[RULE 102] No IPv4 address may be used more than once
-  • address 10.255.0.10 is used by R10.loopback0, R11.loopback0
+[RULE 102] Every loopback address must be unique and use a /32 mask
+  • 10.255.0.10 is used by R10 Loopback0 and R11 Loopback0
 ```
 
 Then put the file back:
@@ -192,19 +248,21 @@ Then put the file back:
 mv data/devices.nac.yaml.bak data/devices.nac.yaml
 ```
 
-Two more to try, with the same pattern. Make R12's `host` equal to R10's, and give R11's loopback the management address `10.10.10.11`:
+One more to try, with the same pattern. Give R12's loopback a /24 mask instead of a /32. The `sed` range only changes lines from the `name: R12` line to the end of the file, so it only touches R12:
 
 ```
-sed -i.bak 's/host: 10.10.10.12/host: 10.10.10.10/' data/devices.nac.yaml
-nac-validate data -s .schema.yaml -r rules; echo $?
-mv data/devices.nac.yaml.bak data/devices.nac.yaml
+sed -i.bak '/name: R12/,$s/address_mask: 255.255.255.255/address_mask: 255.255.255.0/' data/devices.nac.yaml
+nac-validate data -s .schema.yaml -r rules
+echo $?
+```
 
-sed -i.bak 's/address: 10.255.0.11/address: 10.10.10.11/' data/devices.nac.yaml
-nac-validate data -s .schema.yaml -r rules; echo $?
+Expect exit code `1` and a message like `R12 Loopback0 mask is 255.255.255.0, it must be 255.255.255.255`, with rule 102 and nothing else. Then put the file back:
+
+```
 mv data/devices.nac.yaml.bak data/devices.nac.yaml
 ```
 
-Both should trigger rule 102 and nothing else. When you're done, run `nac-validate data -s .schema.yaml -r rules` once more. It should pass again, which proves everything was restored.
+When you're done, run `nac-validate data -s .schema.yaml -r rules` once more. It should pass again, which proves everything was restored.
 
 ## Grading Check
 
@@ -212,7 +270,7 @@ Both should trigger rule 102 and nothing else. When you're done, run `nac-valida
 python grading.py
 ```
 
-The grader re-checks TODO 01 to TODO 03 first. Then it confirms rules 101 and 102 are listed, and that your real data has no violations (exit 0). After that, in a temporary copy, it injects four problems: a hostname mismatch, two loopbacks sharing an address, two devices sharing a host IP, and a loopback reusing a management IP. Each one has to make `nac-validate` exit 1 with the right rule id, and only that id, in the JSON output. Your real files are never touched.
+The grader re-checks TODO 01 to TODO 03 first. Then it confirms rules 101 and 102 are listed, and that your real data has no violations (exit 0). After that, in a temporary copy, it injects three problems: a hostname mismatch, two loopbacks sharing an address, and a loopback with a /24 mask instead of a /32. Each one has to make `nac-validate` exit 1 with the right rule id, and only that id, in the JSON output. Your real files are never touched.
 
 Before you complete this TODO:
 
@@ -240,11 +298,10 @@ TODO 04 - Enforce Business Rules
   real data -> no violations (exit 0)
   injected: hostname does not match name -> rule 101 fired (exit 1)
   injected: two loopbacks share an address -> rule 102 fired (exit 1)
-  injected: two devices share a host IP -> rule 102 fired (exit 1)
-  injected: a loopback reuses a management IP -> rule 102 fired (exit 1)
+  injected: a loopback is not a /32 -> rule 102 fired (exit 1)
 
 ✓ TODO 04 Complete
-Your semantic rules catch hostname mismatches and duplicate addresses.
+Your semantic rules catch hostname mismatches, duplicate loopback addresses and loopbacks that are not a /32.
 ```
 
 ---

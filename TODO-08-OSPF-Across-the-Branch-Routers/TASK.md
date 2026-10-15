@@ -269,8 +269,8 @@ echo $?
 Expect exit code `1` and:
 
 ```
-[RULE 102] No IPv4 address may be used more than once
-  • address 172.16.10.1 is used by R10.loopback10, R11.loopback10
+[RULE 102] Every loopback address must be unique and use a /32 mask
+  • 172.16.10.1 is used by R10 Loopback10 and R11 Loopback10
 ```
 
 Then put the file back:
