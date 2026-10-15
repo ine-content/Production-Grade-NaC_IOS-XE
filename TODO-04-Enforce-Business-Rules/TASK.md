@@ -153,10 +153,10 @@ Change the path if you put the course folder somewhere else.
                      address = ...
                      mask = ...
                      if address:
-                         if ...:      # the mask is not 255.255.255.255
-                             results.append(...)
-                         if ...:      # the address is already in seen
-                             results.append(...)
+                         if ...:      # MASK CHECK: the mask is not 255.255.255.255
+                             results.append(...)    # message about the mask
+                         if ...:      # DUPLICATE CHECK: the address is already in seen
+                             results.append(...)    # message about the duplicate
                          seen[address] = label
              return results
 
@@ -176,16 +176,16 @@ Change the path if you put the course folder somewhere else.
      mask = ...           the loopback's mask, at ipv4 -> address_mask
                           (use .get() on both, so a loopback with no ipv4
                           gives None and is skipped by "if address:")
-     if ...:              (first one) the mask is NOT 255.255.255.255. The
+     if ...:              (MASK CHECK) the mask is NOT 255.255.255.255. The
                           mask is text, so compare it with a string
-     results.append(...)  (first one) a message that names the loopback and
+     results.append(...)  (MASK CHECK) a message that names the loopback and
                           its wrong mask, for example:
                           R12 Loopback0 mask is 255.255.255.0
-     if ...:              (second one) the address is already in seen. The
-                          test for "already in the dictionary" is:
+     if ...:              (DUPLICATE CHECK) the address is already in seen.
+                          The test for "already in the dictionary" is:
                           address in seen
-     results.append(...)  (second one) a message that names the address and
-                          both loopbacks, for example:
+     results.append(...)  (DUPLICATE CHECK) a message that names the address
+                          and both loopbacks, for example:
                           10.255.0.10 is used by R10 Loopback0 and R11 Loopback0
                           The first loopback is seen[address]
 
