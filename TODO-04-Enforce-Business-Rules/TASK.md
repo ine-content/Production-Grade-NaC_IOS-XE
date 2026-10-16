@@ -113,13 +113,17 @@ Change the path if you put the course folder somewhere else.
      if ...:              the test for a problem: the hostname is NOT equal
                           to the device's name. In Python, "not equal" is !=
      results.append(...)  one message about the problem, written as text.
-                          It should say which device is wrong and what its
-                          hostname is. The finished message looks like:
+                          It should say where the problem is, which hostname is
+                          wrong, and why. If R11 has the hostname ROUTER-11,
+                          the finished message looks like:
 
-                              R11 has hostname R10
+                              iosxe.devices[name=R11].configuration.system.hostname - 'ROUTER-11' does not match the device name
 
-                          Build it by gluing text and values together with +.
-                          The device name is device["name"]
+                          Build it from the plain text, the device name
+                          (device["name"]) and the hostname, glued together
+                          with +. The hostname is in quotes in the message, so
+                          the pieces around it are: " - '" before it and
+                          "' does not match the device name" after it
 
    The grader does not read your message, only the rule id and that the rule
    fires. A clear message is still worth writing, because it is what an
