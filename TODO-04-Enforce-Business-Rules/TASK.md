@@ -112,10 +112,14 @@ Change the path if you put the course folder somewhere else.
                           missing hostname gives None
      if ...:              the test for a problem: the hostname is NOT equal
                           to the device's name. In Python, "not equal" is !=
-     results.append(...)  one message for the problem, as text. Say which
-                          device is wrong and what its hostname is, for
-                          example: R11 has hostname R10. The device name is
-                          device["name"]
+     results.append(...)  one message about the problem, written as text.
+                          It should say which device is wrong and what its
+                          hostname is. The finished message looks like:
+
+                              R11 has hostname R10
+
+                          Build it by gluing text and values together with +.
+                          The device name is device["name"]
 
    The grader does not read your message, only the rule id and that the rule
    fires. A clear message is still worth writing, because it is what an
@@ -129,8 +133,9 @@ Change the path if you put the course folder somewhere else.
         (Loopback10 in TODO 08) must be unique too
 
    Check every loopback on every device. Add one message to results for each
-   rule it breaks. The dictionary "seen" remembers each address and which
-   loopback used it first, so you can spot an address that comes up twice.
+   rule it breaks. The blanks list below shows what each message should say.
+   The dictionary "seen" remembers each address and which loopback used it
+   first, so you can spot an address that comes up twice.
 
    Fill in the blanks:
 
@@ -178,16 +183,29 @@ Change the path if you put the course folder somewhere else.
                           gives None and is skipped by "if address:")
      if ...:              (MASK CHECK) the mask is NOT 255.255.255.255. The
                           mask is text, so compare it with a string
-     results.append(...)  (MASK CHECK) a message that names the loopback and
-                          its wrong mask, for example:
-                          R12 Loopback0 mask is 255.255.255.0
+     results.append(...)  (MASK CHECK) one message, written as text. It should
+                          say which loopback is wrong and what its mask is.
+                          The finished message looks like:
+
+                              R12 Loopback0 mask is 255.255.255.0
+
+                          Build it from label and mask with +. The mask can
+                          be None, so wrap it in str(...)
      if ...:              (DUPLICATE CHECK) the address is already in seen.
                           The test for "already in the dictionary" is:
                           address in seen
-     results.append(...)  (DUPLICATE CHECK) a message that names the address
-                          and both loopbacks, for example:
-                          10.255.0.10 is used by R10 Loopback0 and R11 Loopback0
-                          The first loopback is seen[address]
+     results.append(...)  (DUPLICATE CHECK) one message, written as text. It
+                          should say which address is duplicated and which
+                          two loopbacks use it. The finished message looks
+                          like:
+
+                              10.255.0.10 is used by R10 Loopback0 and R11 Loopback0
+
+                          The loopback that used the address first is
+                          seen[address]. The current loopback is label
+
+   The grader does not read your messages, only the rule id and that the rule
+   fires. A clear message is still what an engineer reads when the rule fails.
 
    Why seen[address] = label comes last: it saves this loopback for the
    later ones to compare with. If it came first, every loopback would
