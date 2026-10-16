@@ -184,13 +184,15 @@ Change the path if you put the course folder somewhere else.
      if ...:              (MASK CHECK) the mask is NOT 255.255.255.255. The
                           mask is text, so compare it with a string
      results.append(...)  (MASK CHECK) one message, written as text. It should
-                          say which loopback is wrong and what its mask is.
-                          The finished message looks like:
+                          say which loopback is wrong, what its mask is, and
+                          what the mask must be. The finished message looks
+                          like:
 
-                              R12 Loopback0 mask is 255.255.255.0
+                              R12 Loopback0 mask is 255.255.255.0, it must be 255.255.255.255
 
-                          Build it from label and mask with +. The mask can
-                          be None, so wrap it in str(...)
+                          Build it from label, mask and the plain text between
+                          them, glued together with +. The mask can be None,
+                          so wrap it in str(...)
      if ...:              (DUPLICATE CHECK) the address is already in seen.
                           The test for "already in the dictionary" is:
                           address in seen
