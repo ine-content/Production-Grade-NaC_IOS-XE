@@ -20,7 +20,7 @@ These apply to every TODO that touches a router.
 - Routing labs advertise loopbacks, not the management interface.
 - Credentials never go in YAML or Terraform files. They come from environment variables.
 - Every router-touching TODO has a reset step, so a failed run can't leave a router broken.
-- Terraform changes only a router's running configuration. Run `write memory` on a router after each change you want to keep, and after each reset. Otherwise a reload goes back to the startup configuration and the change is gone.
+- Terraform changes only a router's running configuration unless it is told to save. From TODO 06 the `main.tf` sets `save_config = true`, so the module saves after each apply. Check with `show startup-config`, and if a change is missing, run `write memory`. Always run `write memory` after a manual change or a reset.
 
 ## Router setup (needed from TODO 06)
 

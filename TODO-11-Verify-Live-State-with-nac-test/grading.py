@@ -382,7 +382,8 @@ PROBLEMS[6] = (
     "or you have not run terraform apply for all three routers yet."
 )
 EXPECTED[6] = (
-    "main.tf: managed_devices is either absent or lists R10, R11 and R12.\n"
+    "main.tf: managed_devices is either absent or lists R10, R11 and R12. save_config = true makes\n"
+    "the module save to the startup configuration (the grader does not require it).\n"
     "IOSXE_USERNAME and IOSXE_PASSWORD are set in this terminal.\n"
     "terraform plan -detailed-exitcode exits 0, which means 'No changes' on all three routers."
 )
@@ -400,6 +401,7 @@ module "iosxe" {
   source           = "../offline-bundle/modules/nac-iosxe"
   yaml_directories = ["data"]
   managed_devices  = ["R10", "R11", "R12"]
+  save_config      = true
 }
 """
 

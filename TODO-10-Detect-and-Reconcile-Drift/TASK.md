@@ -230,11 +230,14 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
 
    It must print IN SYNC.
 
-   Terraform only changes the running configuration, so a reload would
-   undo it. On R10, R11 and R12: Save the final state to the startup
-   configuration:
+   The module saves the change for you (save_config = true in main.tf).
+   On R10, R11 and R12: Check the startup configuration holds the final
+   state, the Loopback10 description and the BGP neighbor description:
 
-     write memory
+     show startup-config | section interface Loopback10
+     show startup-config | section router bgp
+
+   If something is missing, save by hand with write memory.
 
 10. On CWS: Run: python grading.py
 ```

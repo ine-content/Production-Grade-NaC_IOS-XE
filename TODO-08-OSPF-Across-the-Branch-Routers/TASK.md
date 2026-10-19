@@ -212,10 +212,12 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
 
    Look through the plan once more and type yes.
 
-   Terraform only changes the running configuration, so a reload would
-   undo it. On R10, R11 and R12: Save it to the startup configuration:
+   The module saves the change for you (save_config = true in main.tf),
+   so it should survive a reload. On R10, R11 and R12: Check that it did:
 
-     write memory
+     show startup-config | section router ospf
+
+   You should see the OSPF process with its networks. If it isn't there, save by hand with write memory.
 
 7. On R10, R11 and R12: Wait about 40 seconds for the adjacencies, then
    check each router. Here is R10:

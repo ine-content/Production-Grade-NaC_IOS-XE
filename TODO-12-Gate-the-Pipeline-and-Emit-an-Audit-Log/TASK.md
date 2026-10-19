@@ -258,10 +258,12 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
 
    It must say BRANCH-LAN again.
 
-   Terraform only changes the running configuration, so a reload would
-   undo it. On R11: Save it to the startup configuration:
+   The module saves the change for you (save_config = true in main.tf).
+   On R11: Check it:
 
-     write memory
+     show startup-config | section interface Loopback10
+
+   It must show BRANCH-LAN. If it doesn't, save by hand with write memory.
 
 9. On CWS: Look at what the log says about those runs:
 
