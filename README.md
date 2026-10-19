@@ -20,6 +20,7 @@ These apply to every TODO that touches a router.
 - Routing labs advertise loopbacks, not the management interface.
 - Credentials never go in YAML or Terraform files. They come from environment variables.
 - Every router-touching TODO has a reset step, so a failed run can't leave a router broken.
+- Terraform changes only a router's running configuration. Run `write memory` on a router after each change you want to keep, and after each reset. Otherwise a reload goes back to the startup configuration and the change is gone.
 
 ## Router setup (needed from TODO 06)
 
@@ -30,6 +31,7 @@ configure terminal
  username <name> privilege 15 secret <password>
  netconf-yang
 end
+write memory
 ```
 
 Port 830 has to be reachable from CWS (10.10.10.250). If the routers use AAA, make sure that login is allowed to run NETCONF. TODO 06 starts with a check that tells you whether this is set up correctly.

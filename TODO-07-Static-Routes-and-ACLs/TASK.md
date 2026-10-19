@@ -237,6 +237,11 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
 
    Look through the plan once more and type yes.
 
+   Terraform only changes the running configuration, so a reload would
+   undo it. On R10, R11 and R12: Save it to the startup configuration:
+
+     write memory
+
 7. On R10, R11 and R12: Check each router. Here is R10:
 
      show ip route static
@@ -359,6 +364,8 @@ On R11 the routes go to 10.255.0.10 via 10.10.10.10 and 10.255.0.12 via 10.10.10
 The snapshot you took in step 4 can also put a router back in one command with `configure replace flash:before-todo07.cfg`. It replaces the whole running configuration, so use it only if nothing else changed on that router since the snapshot.
 
 After a reset, Terraform's record no longer matches the router. Run `terraform plan` and it will show the routes and ACLs as missing, which is what you want if you're going to apply them again.
+
+**Save the reset too.** The reset commands change only the running configuration. Run `write memory` on every router you reset. Without it, a reload brings this TODO's settings back from the startup configuration.
 
 ## Grading Check
 

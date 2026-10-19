@@ -134,6 +134,11 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
    nothing. Write down which of the three were missing, because the
    reset section at the end needs it.
 
+   RESTCONF is only in the running configuration until you save it, so
+   a reload would turn it off again. On R10, R11, R12: Save it:
+
+     write memory
+
 4. On CWS: Ask each router for its hostname the way a test will. This
    needs the router login in this terminal.
 
@@ -331,6 +336,8 @@ end
 Leave out any line that was already in the configuration before step 3, because something else may depend on it. Leave BGP, OSPF and the rest alone. The snapshot from step 2 can also put a router back in one command with `configure replace flash:before-todo11.cfg`. It replaces the whole running configuration, so use it only if nothing else changed on that router since the snapshot.
 
 Terraform isn't involved, so `terraform plan` is not affected either way.
+
+**Save the reset too.** The reset commands change only the running configuration. Run `write memory` on every router you reset. Without it, a reload brings this TODO's settings back from the startup configuration.
 
 ## Grading Check
 

@@ -230,6 +230,12 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
 
    It must print IN SYNC.
 
+   Terraform only changes the running configuration, so a reload would
+   undo it. On R10, R11 and R12: Save the final state to the startup
+   configuration:
+
+     write memory
+
 10. On CWS: Run: python grading.py
 ```
 
@@ -326,6 +332,8 @@ end
 ```
 
 Then restore the data file if you changed it (`cp /tmp/bgp.before-todo10.yaml data/bgp.nac.yaml`) and run `bash drift_check.sh`. The snapshot from step 2 can also put a router back in one command with `configure replace flash:before-todo10.cfg`. It replaces the whole running configuration, so use it only if nothing else changed on that router since the snapshot.
+
+**Save the reset too.** The reset commands change only the running configuration. Run `write memory` on every router you reset. Without it, a reload brings this TODO's settings back from the startup configuration.
 
 ## Grading Check
 

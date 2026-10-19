@@ -258,6 +258,11 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
 
    It must say BRANCH-LAN again.
 
+   Terraform only changes the running configuration, so a reload would
+   undo it. On R11: Save it to the startup configuration:
+
+     write memory
+
 9. On CWS: Look at what the log says about those runs:
 
      tail -n 12 audit.log
@@ -399,6 +404,8 @@ end
 Then run `python pipeline.py` and every stage but apply should say PASS. The snapshot from step 2 can also put a router back in one command with `configure replace flash:before-todo12.cfg`. It replaces the whole running configuration, so use it only if nothing else changed on that router since the snapshot.
 
 Don't delete `audit.log` unless you mean to. The grader reads it to see that you really ran the gate and the apply, and if it is gone you have to repeat steps 5 to 8.
+
+**Save the reset too.** The reset commands change only the running configuration. Run `write memory` on every router you reset. Without it, a reload brings this TODO's settings back from the startup configuration.
 
 ## Grading Check
 

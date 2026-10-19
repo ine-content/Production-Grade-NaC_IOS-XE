@@ -135,6 +135,11 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
 
    Look through the plan once more and type yes.
 
+   Terraform only changes the running configuration, so a reload would
+   undo it. On R12: Save it to the startup configuration:
+
+     write memory
+
 7. On R12: Compare the snapshot with what the router has now:
 
      show archive config differences flash:before-terraform.cfg system:running-config
@@ -153,6 +158,11 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
    On CWS: Then change managed_devices so that it lists all three
    routers and run terraform plan. Only R10 and R11 should show changes
    now, because R12 already matches. Run terraform apply.
+
+   Terraform only changes the running configuration, so a reload would
+   undo it. On R10 and R11: Save it to the startup configuration:
+
+     write memory
 
 9. On CWS: Run terraform plan once more. It must say there is
    nothing to change.
@@ -191,6 +201,12 @@ Loopback0              10.255.0.12     YES manual up                    up
 
 The lines can come in a different order, and the extra header lines `show` prints are left out above. R10 and R11 look the same, with their own addresses (10.255.0.10 and 10.255.0.11).
 
+To check the change was saved, run this on each router. The output must include the line `ip domain name meridian.local`. If it doesn't, run `write memory` and check again:
+
+```
+show startup-config | include domain
+```
+
 Terraform keeps a record of what it manages in `terraform.tfstate` in this folder. List it if you're curious:
 
 ```
@@ -224,6 +240,8 @@ rm -f terraform.tfstate terraform.tfstate.backup
 ```
 
 Don't touch the management interface in the reset either. It was never changed.
+
+**Save the reset too.** The reset commands change only the running configuration. Run `write memory` on every router you reset. Without it, a reload brings this TODO's settings back from the startup configuration.
 
 ## Grading Check
 
