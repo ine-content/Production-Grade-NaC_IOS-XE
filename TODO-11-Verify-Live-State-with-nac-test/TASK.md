@@ -134,9 +134,27 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
    nothing. Write down which of the three were missing, because the
    reset section at the end needs it.
 
-4. On CWS: Ask each router for its hostname the way a test will. The
-   login is still exported in this terminal (IOSXE_USERNAME and
-   IOSXE_PASSWORD, as in TODO 06):
+4. On CWS: Ask each router for its hostname the way a test will. This
+   needs the router login in this terminal.
+
+   Make sure the router login is set in this terminal. The variables stay
+   set while the terminal stays open, even when you change folders, so if
+   you are still in the terminal from TODO 06 you don't need to do anything.
+   Check them:
+
+     echo "$IOSXE_USERNAME"
+     [ -n "$IOSXE_PASSWORD" ] && echo "password is set" || echo "password NOT set"
+
+   If the username is empty or the password says NOT set (a new terminal, or
+   after a reboot), set them again, the same way as in TODO 06:
+
+     export IOSXE_USERNAME=<your username>
+     read -s IOSXE_PASSWORD; export IOSXE_PASSWORD
+
+   After the second command, type the password and press Enter. Nothing is
+   shown on screen.
+
+   Then run:
 
      for h in 10.10.10.10 10.10.10.11 10.10.10.12; do
        curl -sk -u "$IOSXE_USERNAME:$IOSXE_PASSWORD" \
