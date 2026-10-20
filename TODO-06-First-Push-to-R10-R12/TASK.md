@@ -19,7 +19,7 @@ TODO 05 is solved in this folder, so `main.tf` already calls the nac-iosxe modul
 
 Meridian wants the three routers to carry the same basic settings: a domain name, domain lookup turned off, and a Loopback0 that acts as the router ID. All of it already sits in your YAML. Terraform will compare that YAML with what each router has now and change only what differs.
 
-You won't push to all three at once. R12 in Seattle is the staging router, so it goes first. If something is wrong, you find out on the router that matters least. Only then do R10 and R11, the production routers, get the same change. The module has an input for exactly this, `managed_devices`. It takes a list of device names, and the module leaves every other router alone. A second input, `save_config`, makes the module save the configuration to the startup configuration, so the routers keep it after a reload.
+You won't push to all three at once. R12 in Seattle is the staging router, so it goes first. If something is wrong, you find out on the router that matters least. Only then do R10 and R11, the production routers, get the same change. The module has an input for exactly this, `managed_devices`. It takes a list of device names, and the module leaves every other router alone.
 
 ## What this TODO changes
 
@@ -117,15 +117,12 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
    After the second command, type the password and press Enter. Nothing is
    shown on screen, and it stays out of your shell history and your files.
 
-4. On CWS: Limit the module to the staging router, and tell it to save.
-   In the module block of main.tf, add two lines:
+4. On CWS: Limit the module to the staging router. In the module
+   block of main.tf, add one line:
 
      managed_devices = [...]
-     save_config     = true
 
-   Put R12 in the list, and only R12. save_config = true makes the module
-   write the configuration to the startup configuration after it pushes,
-   so it survives a reload.
+   Put R12 in the list, and only R12.
 
 5. On CWS: Run:  terraform init
                        terraform plan
@@ -138,13 +135,10 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
 
    Look through the plan once more and type yes.
 
-   On R12: Check that the module saved the change to the startup
-   configuration:
+   Terraform only changes the running configuration, so a reload would
+   undo it. On R12: Save it to the startup configuration:
 
-     show startup-config | include domain
-
-   You should see ip domain name meridian.local. If it isn't there, save by
-   hand with write memory.
+     write memory
 
 7. On R12: Compare the snapshot with what the router has now:
 
@@ -165,12 +159,10 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
    routers and run terraform plan. Only R10 and R11 should show changes
    now, because R12 already matches. Run terraform apply.
 
-   On R10 and R11: Check that the module saved the change, the same way as
-   on R12:
+   Terraform only changes the running configuration, so a reload would
+   undo it. On R10 and R11: Save it to the startup configuration:
 
-     show startup-config | include domain
-
-   If it isn't there, save by hand with write memory.
+     write memory
 
 9. On CWS: Run terraform plan once more. It must say there is
    nothing to change.

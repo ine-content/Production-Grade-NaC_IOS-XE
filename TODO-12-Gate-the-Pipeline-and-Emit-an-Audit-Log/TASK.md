@@ -105,6 +105,34 @@ cd ~/Production-Grade-NaC_IOS-XE/TODO-12-Gate-the-Pipeline-and-Emit-an-Audit-Log
 
 Change the path if you put the course folder somewhere else.
 
+## Before You Start
+
+You can do each TODO on its own, so this one starts from routers that already carry the work of the TODOs before it: everything from TODO 06 to 09, plus RESTCONF, which you turned on by hand in TODO 11.
+
+Check this on R10 first:
+
+     show running-config | include ip http|restconf
+     show ip bgp summary
+
+You should see ip http secure-server, ip http authentication local and restconf, and both BGP neighbors established.
+
+If R10, R11 and R12 all look like that, for example because you just finished TODO 11 on these routers, go straight to Steps.
+
+If they don't (new routers, a router you reset, a restored snapshot), catch the routers up first. This folder already holds the solved data and main.tf for everything before this TODO, so Terraform can push it for you. On CWS, in this folder, set the router login:
+
+     export IOSXE_USERNAME=<your username>
+     read -s IOSXE_PASSWORD; export IOSXE_PASSWORD
+
+Then run:
+
+     terraform init
+     terraform plan
+     terraform apply
+
+The plan lists what the earlier TODOs configured. Read it, and type yes. If RESTCONF is missing, turn it on afterwards on R10, R11 and R12 with: configure terminal, then ip http secure-server, ip http authentication local, restconf, then end. Then run write memory on R10, R11 and R12, so the routers keep it after a reload.
+
+Terraform's record of what it just created now lives in this folder. Later, when Steps tells you to copy the record from the last TODO, skip that copy.
+
 ## Steps
 
 Each step starts by saying where to run it. "On CWS" means a normal terminal on the lab machine (CWS), in this folder. "On R10" (or R11, R12) means that router's own command line (SSH or console). These labels are only directions. You don't type them anywhere.
@@ -192,6 +220,9 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
      cp ../TODO-11-Verify-Live-State-with-nac-test/terraform.tfstate .
      terraform init
 
+   If you caught the routers up in Before You Start, the record is already
+   in this folder. Skip the cp line and run only terraform init.
+
    Make sure the router login is set in this terminal. The variables stay
    set while the terminal stays open, even when you change folders, so if
    you are still in the terminal from TODO 06 you don't need to do anything.
@@ -258,12 +289,10 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
 
    It must say BRANCH-LAN again.
 
-   The module saves the change for you (save_config = true in main.tf).
-   On R11: Check it:
+   Terraform only changes the running configuration, so a reload would
+   undo it. On R11: Save it to the startup configuration:
 
-     show startup-config | section interface Loopback10
-
-   It must show BRANCH-LAN. If it doesn't, save by hand with write memory.
+     write memory
 
 9. On CWS: Look at what the log says about those runs:
 

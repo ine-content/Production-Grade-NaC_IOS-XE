@@ -106,6 +106,34 @@ cd ~/Production-Grade-NaC_IOS-XE/TODO-08-OSPF-Across-the-Branch-Routers
 
 Change the path if you put the course folder somewhere else.
 
+## Before You Start
+
+You can do each TODO on its own, so this one starts from routers that already carry the work of the TODOs before it: everything from TODO 06, plus the static routes and the LOOPBACK-NET ACL from TODO 07.
+
+Check this on R10 first:
+
+     show ip route static
+     show access-lists LOOPBACK-NET
+
+You should see R10's two static routes, and the ACL with entry 10 permitting 10.255.0.0 and entry 20 denying any.
+
+If R10, R11 and R12 all look like that, for example because you just finished TODO 07 on these routers, go straight to Steps.
+
+If they don't (new routers, a router you reset, a restored snapshot), catch the routers up first. This folder already holds the solved data and main.tf for everything before this TODO, so Terraform can push it for you. On CWS, in this folder, set the router login:
+
+     export IOSXE_USERNAME=<your username>
+     read -s IOSXE_PASSWORD; export IOSXE_PASSWORD
+
+Then run:
+
+     terraform init
+     terraform plan
+     terraform apply
+
+The plan lists what the earlier TODOs configured. Read it, and type yes. Then run write memory on R10, R11 and R12, so the routers keep it after a reload.
+
+Terraform's record of what it just created now lives in this folder. Later, when Steps tells you to copy the record from the last TODO, skip that copy.
+
 ## Steps
 
 Each step starts by saying where to run it. "On CWS" means a normal terminal on the lab machine (CWS), in this folder. "On R10" (or R11, R12) means that router's own command line (SSH or console). These labels are only directions. You don't type them anywhere.
@@ -186,6 +214,9 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
      cp ../TODO-07-Static-Routes-and-ACLs/terraform.tfstate .
      terraform init
 
+   If you caught the routers up in Before You Start, the record is already
+   in this folder. Skip the cp line and run only terraform init.
+
    Make sure the router login is set in this terminal. The variables stay
    set while the terminal stays open, even when you change folders, so if
    you are still in the terminal from TODO 06 you don't need to do anything.
@@ -212,12 +243,10 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
 
    Look through the plan once more and type yes.
 
-   The module saves the change for you (save_config = true in main.tf),
-   so it should survive a reload. On R10, R11 and R12: Check that it did:
+   Terraform only changes the running configuration, so a reload would
+   undo it. On R10, R11 and R12: Save it to the startup configuration:
 
-     show startup-config | section router ospf
-
-   You should see the OSPF process with its networks. If it isn't there, save by hand with write memory.
+     write memory
 
 7. On R10, R11 and R12: Wait about 40 seconds for the adjacencies, then
    check each router. Here is R10:

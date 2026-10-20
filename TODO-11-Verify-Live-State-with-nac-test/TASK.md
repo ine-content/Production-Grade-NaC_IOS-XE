@@ -96,6 +96,34 @@ cd ~/Production-Grade-NaC_IOS-XE/TODO-11-Verify-Live-State-with-nac-test
 
 Change the path if you put the course folder somewhere else.
 
+## Before You Start
+
+You can do each TODO on its own, so this one starts from routers that already carry the work of the TODOs before it: everything from TODO 06 to 09 (TODO 10 adds no router configuration).
+
+Check this on R10 first:
+
+     show running-config | section router bgp
+     show ip bgp summary
+
+You should see router bgp 65010 with R10's two neighbors, and both neighbors in the summary with a number in the last column, not Idle or Active.
+
+If R10, R11 and R12 all look like that, for example because you just finished TODO 10 on these routers, go straight to Steps.
+
+If they don't (new routers, a router you reset, a restored snapshot), catch the routers up first. This folder already holds the solved data and main.tf for everything before this TODO, so Terraform can push it for you. On CWS, in this folder, set the router login:
+
+     export IOSXE_USERNAME=<your username>
+     read -s IOSXE_PASSWORD; export IOSXE_PASSWORD
+
+Then run:
+
+     terraform init
+     terraform plan
+     terraform apply
+
+The plan lists what the earlier TODOs configured. Read it, and type yes. Then run write memory on R10, R11 and R12, so the routers keep it after a reload.
+
+Terraform's record of what it just created now lives in this folder. Later, when Steps tells you to copy the record from the last TODO, skip that copy.
+
 ## Steps
 
 Each step starts by saying where to run it. "On CWS" means a normal terminal on the lab machine (CWS), in this folder. "On R10" (or R11, R12) means that router's own command line (SSH or console). These labels are only directions. You don't type them anywhere.
