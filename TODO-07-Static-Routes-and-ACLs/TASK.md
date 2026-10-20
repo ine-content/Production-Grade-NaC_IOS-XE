@@ -223,6 +223,39 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
    loopback may have no binding at all, so use .get() with a default, and
    only report when there is a name that is not in defined.
 
+   What goes in each blank:
+
+     id = "..."           the rule number as text, in quotes: "103"
+     description = "..."  one sentence that says what the rule demands,
+                          for example: An interface may only use an ACL
+                          that the same device defines
+     defined = ...        the set of names of the standard ACLs this device
+                          defines. In words: start with an empty set, go
+                          through lists.get("standard", []), and add each
+                          acl["name"] to it. An empty set is set(), and
+                          you add with .add(...)
+     name = ...           the ACL name this loopback uses, at
+                          ipv4 -> access_group_in. Use .get() on both
+                          steps, so a loopback with no binding gives None
+     if ...:              the test for a problem: there is a name, and the
+                          name is not in defined. Both parts are needed,
+                          because None means no binding, which is fine
+     results.append(...)  one message about the problem, written as text.
+                          It should say which device and loopback use the
+                          ACL, which ACL name it is, and what is wrong. The
+                          finished message looks like:
+
+                              R10 Loopback0 uses ACL 'NO-SUCH-ACL', which the device does not define
+
+                          Build it from the device name (device["name"]),
+                          the loopback number (loopback.get("id"), wrapped
+                          in str(...) because it is a number), the ACL name
+                          in single quotes, and the plain text between
+                          them, glued together with +
+
+   The grader does not read your message, only the rule id and that the rule
+   fires. A clear message is still what an engineer reads when the rule fails.
+
 4. On R10, R11 and R12: Take a snapshot on each router, then check it:
 
      copy running-config flash:before-todo07.cfg
