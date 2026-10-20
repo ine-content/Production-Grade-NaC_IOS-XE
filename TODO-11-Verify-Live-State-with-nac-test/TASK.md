@@ -100,16 +100,14 @@ Change the path if you put the course folder somewhere else.
 
 You can do each TODO on its own, so this one starts from routers that already carry the work of the TODOs before it: everything from TODO 06 to 09 (TODO 10 adds no router configuration).
 
-Check this on R10 first:
+Here is how to check R10:
 
      show running-config | section router bgp
      show ip bgp summary
 
 You should see router bgp 65010 with R10's two neighbors, and both neighbors in the summary with a number in the last column, not Idle or Active.
 
-If R10, R11 and R12 all look like that, for example because you just finished TODO 10 on these routers, go straight to Steps.
-
-If they don't (new routers, a router you reset, a restored snapshot), catch the routers up first. This folder already holds the solved data and main.tf for everything before this TODO, so Terraform can push it for you. On CWS, in this folder, set the router login:
+Whether or not the routers already look like that, start with a baseline apply. This folder already holds the solved data and main.tf for everything before this TODO. The apply does two things: it gives Terraform a record of that earlier work in this folder, so later plans show only this TODO's changes, and it brings any router that is behind up to date (new routers, a router you reset, a restored snapshot). If a router already has the work, the apply simply matches it. On CWS, in this folder, set the router login:
 
      export IOSXE_USERNAME=<your username>
      read -s IOSXE_PASSWORD; export IOSXE_PASSWORD
@@ -122,7 +120,7 @@ Then run:
 
 The plan lists what the earlier TODOs configured. Read it, and type yes. Then run write memory on R10, R11 and R12, so the routers keep it after a reload.
 
-Terraform's record of what it just created now lives in this folder. Later, when Steps tells you to copy the record from the last TODO, skip that copy.
+When it finishes, run the check commands above again and confirm they show what you should see.
 
 ## Steps
 

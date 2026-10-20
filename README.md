@@ -20,7 +20,7 @@ These apply to every TODO that touches a router.
 - Routing labs advertise loopbacks, not the management interface.
 - Credentials never go in YAML or Terraform files. They come from environment variables.
 - Every router-touching TODO has a reset step, so a failed run can't leave a router broken.
-- Each TODO can be done on its own. From TODO 07 on, a "Before You Start" section tells you how to check that the routers carry the earlier TODOs' work, and how to catch them up with `terraform apply` if they don't.
+- Each TODO can be done on its own. From TODO 07 on, a "Before You Start" section tells you how to check that the routers carry the earlier TODOs' work, and and the baseline `terraform apply` that catches them up and gives the folder Terraform's record of the earlier work.
 - Terraform changes only a router's running configuration. Run `write memory` on a router after each change you want to keep, and after each reset. Otherwise a reload goes back to the startup configuration and the change is gone.
 
 ## Router setup (needed from TODO 06)
