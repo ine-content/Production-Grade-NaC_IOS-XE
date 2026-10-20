@@ -1,4 +1,4 @@
-# TODO 12 — Gate the Pipeline and Emit an Audit Log
+# TODO 11 — Gate the Pipeline and Emit an Audit Log
 
 ## Topics Covered
 
@@ -12,7 +12,7 @@
 
 ## Recap
 
-TODO 11 is solved in this folder, and so is everything before it. You can validate the data (TODO 03 and 04), plan against the routers (TODO 05 to 10), push (TODO 06) and test the live state (TODO 11). Each of those you ran by hand, one at a time, and you decided when to move on. In this TODO a script makes that decision for you, and writes down every decision it made.
+TODO 10 is solved in this folder, and so is everything before it. You can validate the data (TODO 03 and 04), plan against the routers (TODO 05 to 09), push (TODO 06) and test the live state (TODO 10). Each of those you ran by hand, one at a time, and you decided when to move on. In this TODO a script makes that decision for you, and writes down every decision it made.
 
 ## Scenario
 
@@ -21,7 +21,7 @@ By hand, it is easy to skip a step. Someone is in a hurry, the schema complains,
 1. validate: the data passes the schema and every rule.
 2. plan: Terraform reads the routers and says whether anything would change.
 3. apply: Terraform pushes the changes. This only happens when someone asked for it with `--apply`, and only when the plan found something to push.
-4. verify: the nac-test tests from TODO 11 pass on the live routers.
+4. verify: the nac-test tests from TODO 10 pass on the live routers.
 
 If a stage fails, the stages after it do not run. Bad data never reaches a router. A router that can't be planned is never changed.
 
@@ -100,21 +100,21 @@ Everything else in a skeleton is already filled in and must stay as it is.
 Do everything for this TODO from its own folder. Open a terminal and run:
 
 ```
-cd ~/Production-Grade-NaC_IOS-XE/TODO-12-Gate-the-Pipeline-and-Emit-an-Audit-Log
+cd ~/Production-Grade-NaC_IOS-XE/TODO-11-Gate-the-Pipeline-and-Emit-an-Audit-Log
 ```
 
 Change the path if you put the course folder somewhere else.
 
 ## Before You Start
 
-You can do each TODO on its own, so this one starts from routers that already carry the work of the TODOs before it: everything from TODO 06 to 09, plus RESTCONF, which you turned on by hand in TODO 11.
+You can do each TODO on its own, so this one starts from routers that already carry the work of the TODOs before it: everything from TODO 06 to 08, plus RESTCONF, which you turned on by hand in TODO 10.
 
 Here is how to check R10:
 
      show running-config | include ip http|restconf
-     show ip bgp summary
+     show ip ospf neighbor
 
-You should see ip http secure-server, ip http authentication local and restconf, and both BGP neighbors established.
+You should see ip http secure-server, ip http authentication local and restconf, and two OSPF neighbors in state FULL.
 
 Whether or not the routers already look like that, start with a baseline apply. This folder already holds the solved data and main.tf for everything before this TODO. The apply does two things: it gives Terraform a record of that earlier work in this folder, so later plans show only this TODO's changes, and it brings any router that is behind up to date (new routers, a router you reset, a restored snapshot). If a router already has the work, the apply simply matches it. On CWS, in this folder, set the router login:
 
@@ -207,31 +207,11 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
 
 2. On R10, R11, R12: Take a snapshot on each router, then check it:
 
-     copy running-config flash:before-todo12.cfg
-     dir flash:before-todo12.cfg
+     copy running-config flash:before-todo11.cfg
+     dir flash:before-todo11.cfg
 
    Press Enter to accept the file name. Use bootflash: if flash: isn't
    accepted. The listing must show a size above zero.
-
-3. On CWS: Terraform's record of the earlier work is already in this folder
-   from Before You Start, so there is nothing to copy.
-
-   Make sure the router login is set in this terminal. The variables stay
-   set while the terminal stays open, even when you change folders, so if
-   you are still in the terminal from TODO 06 you don't need to do anything.
-   Check them:
-
-     echo "$IOSXE_USERNAME"
-     [ -n "$IOSXE_PASSWORD" ] && echo "password is set" || echo "password NOT set"
-
-   If the username is empty or the password says NOT set (a new terminal, or
-   after a reboot), set them again, the same way as in TODO 06:
-
-     export IOSXE_USERNAME=<your username>
-     read -s IOSXE_PASSWORD; export IOSXE_PASSWORD
-
-   After the second command, type the password and press Enter. Nothing is
-   shown on screen.
 
 4. On CWS: A normal run, with nothing to change:
 
@@ -246,17 +226,17 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
 5. On CWS: The gate. Break the data so validation fails, ask for the
    most, and see what stops:
 
-     sed -i.bak 's/remote_as: 65010/remote_as: same/' data/bgp.nac.yaml
+     sed -i.bak 's/area: 0/area: zero/' data/ospf.nac.yaml
      python pipeline.py --apply
      echo $?
-     mv data/bgp.nac.yaml.bak data/bgp.nac.yaml
+     mv data/ospf.nac.yaml.bak data/ospf.nac.yaml
 
    validate must say FAIL, the three stages after it must say SKIPPED,
    and the exit code must be 1. Nothing was sent to a router, even with
    --apply.
 
 6. On R11: Make a change the pipeline has to push. Change the
-   description of Loopback10 by hand, as in TODO 10:
+   description of Loopback10 by hand, as in TODO 09:
 
      configure terminal
       interface Loopback10
@@ -371,7 +351,7 @@ tail -n 4 audit.log
 `wc -l` must say `20`. The last four lines are the failed apply run, and the skipped verify line must show `"exit_code": null`. Then go back to your folder and clean up:
 
 ```
-cd ~/Production-Grade-NaC_IOS-XE/TODO-12-Gate-the-Pipeline-and-Emit-an-Audit-Log
+cd ~/Production-Grade-NaC_IOS-XE/TODO-11-Gate-the-Pipeline-and-Emit-an-Audit-Log
 rm -r /tmp/fakebin /tmp/pipe-test
 ```
 
@@ -425,7 +405,7 @@ configure terminal
 end
 ```
 
-Then run `python pipeline.py` and every stage but apply should say PASS. The snapshot from step 2 can also put a router back in one command with `configure replace flash:before-todo12.cfg`. It replaces the whole running configuration, so use it only if nothing else changed on that router since the snapshot.
+Then run `python pipeline.py` and every stage but apply should say PASS. The snapshot from step 2 can also put a router back in one command with `configure replace flash:before-todo11.cfg`. It replaces the whole running configuration, so use it only if nothing else changed on that router since the snapshot.
 
 Don't delete `audit.log` unless you mean to. The grader reads it to see that you really ran the gate and the apply, and if it is gone you have to repeat steps 5 to 8.
 
@@ -437,17 +417,17 @@ Don't delete `audit.log` unless you mean to. The grader reads it to see that you
 python grading.py
 ```
 
-Run it in the terminal where you exported `IOSXE_USERNAME` and `IOSXE_PASSWORD`. The grader re-checks TODO 01 to TODO 11 first, each against only the data files that belong to it. Then it runs your `pipeline.py` against pretend tools in a temporary folder: a clean run, a run with changes waiting and no approval, an approved run, an approved run with nothing to apply, a run where each of validate, plan, apply and verify fails in turn, and two runs in a row to check that the log is appended to. For each it checks the stage results, the exit code, which tools were called and in what order, and the fields in every log line. It makes sure a pretend password never reaches the log. Then it reads your real `audit.log` and looks for a run that validation stopped and a run that applied a change. Last, `terraform plan -detailed-exitcode` has to exit `0`. Nothing is changed on a router by the grader.
+Run it in the terminal where you exported `IOSXE_USERNAME` and `IOSXE_PASSWORD`. The grader re-checks TODO 01 to TODO 10 first, each against only the data files that belong to it. Then it runs your `pipeline.py` against pretend tools in a temporary folder: a clean run, a run with changes waiting and no approval, an approved run, an approved run with nothing to apply, a run where each of validate, plan, apply and verify fails in turn, and two runs in a row to check that the log is appended to. For each it checks the stage results, the exit code, which tools were called and in what order, and the fields in every log line. It makes sure a pretend password never reaches the log. Then it reads your real `audit.log` and looks for a run that validation stopped and a run that applied a change. Last, `terraform plan -detailed-exitcode` has to exit `0`. Nothing is changed on a router by the grader.
 
 Before you complete this TODO:
 
 ```
-TODO 12 - Gate the Pipeline and Emit an Audit Log
+TODO 11 - Gate the Pipeline and Emit an Audit Log
 ────────────────────────────────────────────────────────────────────────────────
 
-[12] Gating the pipeline and writing the audit log...
+[11] Gating the pipeline and writing the audit log...
 
-✗ TODO 12 Not Complete
+✗ TODO 11 Not Complete
 
 The pipeline cannot continue because changes are not yet gated and recorded in an audit log.
 
@@ -457,10 +437,10 @@ Proceeding to detailed feedback...
 After you complete it correctly:
 
 ```
-TODO 12 - Gate the Pipeline and Emit an Audit Log
+TODO 11 - Gate the Pipeline and Emit an Audit Log
 ────────────────────────────────────────────────────────────────────────────────
 
-[12] Gating the pipeline and writing the audit log...
+[11] Gating the pipeline and writing the audit log...
   pipeline.py -> validate, plan, apply, verify, in that order
   gate -> a failed stage stops the rest, which are logged SKIPPED
   apply -> only with --apply and only when the plan found changes
@@ -468,7 +448,7 @@ TODO 12 - Gate the Pipeline and Emit an Audit Log
   audit.log -> shows a run stopped by validation and a run that applied a change
   terraform plan -> no changes
 
-✓ TODO 12 Complete
+✓ TODO 11 Complete
 The pipeline gates every change, applies only with approval, and records each stage in the audit log.
 ```
 

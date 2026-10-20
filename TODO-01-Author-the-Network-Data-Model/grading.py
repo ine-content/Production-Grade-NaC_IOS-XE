@@ -53,7 +53,7 @@ CYAN = "cyan"
 
 INTERACTIVE_MODE = os.environ.get("CAPSTONE_INTERACTIVE", "1") != "0"
 
-COURSE_TOTAL_TODOS = 12
+COURSE_TOTAL_TODOS = 11
 TOTAL_TODOS = 1
 
 # -----------------------------------------------------------------------------
@@ -83,10 +83,9 @@ TODO_NAMES = {
     6: "First Push to R10-R12",
     7: "Static Routes and ACLs",
     8: "OSPF Across the Branch Routers",
-    9: "BGP Peering",
-    10: "Detect and Reconcile Drift",
-    11: "Verify Live State with nac-test",
-    12: "Gate the Pipeline and Emit an Audit Log",
+    9: "Detect and Reconcile Drift",
+    10: "Verify Live State with nac-test",
+    11: "Gate the Pipeline and Emit an Audit Log",
 }
 
 SUCCESS_MESSAGES = {

@@ -46,7 +46,7 @@ COMMON_FILE = DATA_DIR / "common.nac.yaml"
 ROUTING_FILE = DATA_DIR / "routing.nac.yaml"
 # Data files that belong to later TODOs. An earlier TODO's check must not look at them,
 # so a half-finished file for TODO 08 can never make TODO 07 look broken.
-FILE_TODO = {"routing.nac.yaml": 7, "ospf.nac.yaml": 8, "bgp.nac.yaml": 9}
+FILE_TODO = {"routing.nac.yaml": 7, "ospf.nac.yaml": 8}
 SCHEMA_FILE = ROOT / ".schema.yaml"
 RULES_DIR = ROOT / "rules"
 
@@ -61,7 +61,7 @@ CYAN = "cyan"
 
 INTERACTIVE_MODE = os.environ.get("CAPSTONE_INTERACTIVE", "1") != "0"
 
-COURSE_TOTAL_TODOS = 12
+COURSE_TOTAL_TODOS = 11
 TOTAL_TODOS = 6
 
 # -----------------------------------------------------------------------------
@@ -91,10 +91,9 @@ TODO_NAMES = {
     6: "First Push to R10-R12",
     7: "Static Routes and ACLs",
     8: "OSPF Across the Branch Routers",
-    9: "BGP Peering",
-    10: "Detect and Reconcile Drift",
-    11: "Verify Live State with nac-test",
-    12: "Gate the Pipeline and Emit an Audit Log",
+    9: "Detect and Reconcile Drift",
+    10: "Verify Live State with nac-test",
+    11: "Gate the Pipeline and Emit an Audit Log",
 }
 
 SUCCESS_MESSAGES = {
@@ -106,10 +105,9 @@ SUCCESS_MESSAGES = {
     6: "R10, R11 and R12 match the data model, and a second plan finds nothing left to change.",
     7: "Static routes and an ACL are modelled, validated by schema and rule, and match the live routers.",
     8: "OSPF is modelled, validated by schema and rules 101 to 104, and the routers run it as described.",
-    9: "BGP is modelled, validated by schema and rules 101 to 105, and the three routers peer as described.",
-    10: "Drift is detected by drift_check.sh, reconciled both ways, and the routers match the data model again.",
-    11: "The tests are generated from the data model and the live routers pass every one of them.",
-    12: "The pipeline gates every change, applies only with approval, and records each stage in the audit log.",
+    9: "Drift is detected by drift_check.sh, reconciled both ways, and the routers match the data model again.",
+    10: "The tests are generated from the data model and the live routers pass every one of them.",
+    11: "The pipeline gates every change, applies only with approval, and records each stage in the audit log.",
 }
 
 FAIL_MESSAGES = {
@@ -121,10 +119,9 @@ FAIL_MESSAGES = {
     6: "The pipeline cannot continue because the routers do not yet match the data model.",
     7: "The pipeline cannot continue because the routes and ACL are not modelled, validated and applied yet.",
     8: "The pipeline cannot continue because OSPF is not modelled, validated and applied yet.",
-    9: "The pipeline cannot continue because BGP is not modelled, validated and applied yet.",
-    10: "The pipeline cannot continue because drift cannot be detected and reconciled yet.",
-    11: "The pipeline cannot continue because the live state is not yet verified by tests generated from the data model.",
-    12: "The pipeline cannot continue because changes are not yet gated and recorded in an audit log.",
+    9: "The pipeline cannot continue because drift cannot be detected and reconciled yet.",
+    10: "The pipeline cannot continue because the live state is not yet verified by tests generated from the data model.",
+    11: "The pipeline cannot continue because changes are not yet gated and recorded in an audit log.",
 }
 
 PROBLEMS = {}
@@ -1428,297 +1425,30 @@ def check_todo_8():
     return code == 0 if TOTAL_TODOS == 8 else code in (0, 2)
 
 
-EXPECTED_BGP_AS = 65010
-EXPECTED_BGP_PEERS = {
-    "R10": {"10.255.0.11", "10.255.0.12"},
-    "R11": {"10.255.0.10", "10.255.0.12"},
-    "R12": {"10.255.0.10", "10.255.0.11"},
-}
+DRIFT_SCRIPT = ROOT / "drift_check.sh"
 
 PROBLEMS[9] = (
-    "One of these is not right yet. data/bgp.nac.yaml must give every router BGP in AS 65010 with its\n"
-    "Loopback0 as router ID, two neighbors (the other routers' Loopback0 addresses, sourced from\n"
-    "Loopback0), its own Loopback10 advertised, and both neighbors activated. .schema.yaml must accept\n"
-    "all of it and reject mistakes in it. rules/105 must flag a neighbor that is not another router's\n"
-    "Loopback0 or whose remote_as is not that router's AS. Finally terraform plan must show no changes."
-)
-EXPECTED[9] = (
-    "BGP AS 65010 on R10, R11, R12; router_id = that router's Loopback0 address.\n"
-    "Neighbors (remote_as 65010, update source Loopback0): R10 -> 10.255.0.11 and 10.255.0.12,\n"
-    "R11 -> 10.255.0.10 and 10.255.0.12, R12 -> 10.255.0.10 and 10.255.0.11.\n"
-    "address-family ipv4 unicast: network = own Loopback10 /32; both neighbors activate: true.\n"
-    "Schema rejects bad AS numbers, IPs, masks and misspelled keys (exit 2).\n"
-    "Rule 105 flags an unknown neighbor, a neighbor that is the device itself, and a wrong remote_as.\n"
-    "terraform plan -detailed-exitcode exits 0."
-)
-HINTS[9] = (
-    "bgp.nac.yaml only needs the device name and routing -> bgp. as_number, router_id, neighbors and\n"
-    "address_family -> ipv4_unicast (networks and neighbors) are siblings under bgp. A network entry\n"
-    "has network and mask. update_source_interface_type is Loopback and the id is 0. If plan still\n"
-    "shows changes, run terraform apply. If plan wants to recreate things from earlier TODOs, copy the\n"
-    "state file from the previous TODO folder."
-)
-SOLUTIONS[9] = """# data/bgp.nac.yaml  (R10 shown; R11 and R12 follow the table in TASK.md)
-iosxe:
-  devices:
-    - name: R10
-      configuration:
-        routing:
-          bgp:
-            as_number: 65010
-            router_id: 10.255.0.10
-            default_ipv4_unicast: false
-            log_neighbor_changes: true
-            neighbors:
-              - ip: 10.255.0.11
-                remote_as: 65010
-                description: R11
-                update_source_interface_type: Loopback
-                update_source_interface_id: 0
-              - ip: 10.255.0.12
-                remote_as: 65010
-                description: R12
-                update_source_interface_type: Loopback
-                update_source_interface_id: 0
-            address_family:
-              ipv4_unicast:
-                networks:
-                  - network: 172.16.10.1
-                    mask: 255.255.255.255
-                neighbors:
-                  - ip: 10.255.0.11
-                    activate: true
-                  - ip: 10.255.0.12
-                    activate: true
-
-# additions to .schema.yaml
-routing:
-  bgp: include('bgp', required=False)
-bgp:
-  as_number: int(min=1, max=4294967295)
-  router_id: ip(version=4, required=False)
-  default_ipv4_unicast: bool(required=False)
-  log_neighbor_changes: bool(required=False)
-  neighbors: list(include('bgp_neighbor'), required=False)
-  address_family: include('bgp_address_family', required=False)
-bgp_neighbor:
-  ip: ip(version=4)
-  remote_as: int(min=1, max=4294967295)
-  description: str(required=False)
-  update_source_interface_type: str(required=False)
-  update_source_interface_id: int(min=0, required=False)
-bgp_address_family:
-  ipv4_unicast: include('bgp_ipv4_unicast', required=False)
-bgp_ipv4_unicast:
-  networks: list(include('bgp_network'), required=False)
-  neighbors: list(include('bgp_af_neighbor'), required=False)
-bgp_network:
-  network: ip(version=4)
-  mask: ip(version=4)
-bgp_af_neighbor:
-  ip: ip(version=4)
-  activate: bool(required=False)
-
-# rules/105_bgp_neighbor_matches_peer.py
-from nac_validate import RuleBase
-
-
-class Rule(RuleBase):
-    id = "105"
-    description = "A BGP neighbor must be another device's Loopback0 and carry that device's AS"
-    severity = "HIGH"
-
-    @classmethod
-    def match(cls, data):
-        devices = data.get("iosxe", {}).get("devices", [])
-        owners = {}
-        for device in devices:
-            config = device.get("configuration", {})
-            loopbacks = config.get("interfaces", {}).get("loopbacks", [])
-            loopback0 = next((lb for lb in loopbacks if lb.get("id") == 0), {})
-            address = loopback0.get("ipv4", {}).get("address")
-            asn = config.get("routing", {}).get("bgp", {}).get("as_number")
-            if address:
-                owners[address] = (device["name"], asn)
-        results = []
-        for device in devices:
-            bgp = device.get("configuration", {}).get("routing", {}).get("bgp", {})
-            for neighbor in bgp.get("neighbors", []):
-                ip = neighbor.get("ip")
-                owner = owners.get(ip)
-                if owner is None:
-                    results.append(f"{device['name']} neighbor {ip} is not the Loopback0 address of any device")
-                elif owner[0] == device["name"]:
-                    results.append(f"{device['name']} neighbor {ip} is its own Loopback0 address")
-                elif owner[1] != neighbor.get("remote_as"):
-                    results.append(
-                        f"{device['name']} neighbor {ip} has remote_as {neighbor.get('remote_as')} "
-                        f"but {owner[0]} is in AS {owner[1]}"
-                    )
-        return results
-"""
-
-
-def _bgp_of(model, name):
-    return _device(model, name)["configuration"]["routing"]["bgp"]
-
-
-def _bgp_schema_mutations():
-    """(label, mutator) - each must make the extended schema reject the data (exit 2)."""
-
-    def text_as(bgp):
-        _bgp_of(bgp, "R10")["as_number"] = "meridian"
-
-    def bad_router_id(bgp):
-        _bgp_of(bgp, "R11")["router_id"] = "10.255.0"
-
-    def bad_neighbor_ip(bgp):
-        _bgp_of(bgp, "R12")["neighbors"][0]["ip"] = "10.255.0.999"
-
-    def text_remote_as(bgp):
-        _bgp_of(bgp, "R10")["neighbors"][1]["remote_as"] = "same"
-
-    def bad_mask(bgp):
-        _bgp_of(bgp, "R11")["address_family"]["ipv4_unicast"]["networks"][0]["mask"] = "banana"
-
-    def typo_key(bgp):
-        af = _bgp_of(bgp, "R12")["address_family"]["ipv4_unicast"]
-        af["neighbours"] = af.pop("neighbors")
-
-    return [
-        ("AS number written as text", text_as),
-        ("router ID not an IP", bad_router_id),
-        ("neighbor address not a valid IP", bad_neighbor_ip),
-        ("remote_as written as text", text_remote_as),
-        ("advertised network mask not an IP", bad_mask),
-        ("misspelled neighbors key in the address family", typo_key),
-    ]
-
-
-def _bgp_rule_mutations():
-    """(label, mutator, rule_id) - each must make exactly that rule fire (exit 1)."""
-
-    def unknown_peer(bgp):
-        _bgp_of(bgp, "R10")["neighbors"][0]["ip"] = "10.255.0.99"
-
-    def own_address(bgp):
-        _bgp_of(bgp, "R11")["neighbors"][0]["ip"] = "10.255.0.11"
-
-    def wrong_as(bgp):
-        _bgp_of(bgp, "R12")["neighbors"][1]["remote_as"] = 65011
-
-    return [
-        ("neighbor is not any router's Loopback0", unknown_peer, "105"),
-        ("neighbor is the router's own Loopback0", own_address, "105"),
-        ("remote_as differs from the peer's AS", wrong_as, "105"),
-    ]
-
-
-def _bgp_in_merged_model_ok(data_dir):
-    """The merged model must carry the BGP process, neighbors, advertised network and activation."""
-    with tempfile.TemporaryDirectory() as tmp:
-        merged = Path(tmp) / "merged.yaml"
-        code, _, _ = run_nac_validate(data_dir, extra=["-o", str(merged)])
-        if code != 0 or not merged.exists():
-            return False
-        model = _load_yaml(merged)
-
-    for name, expected in EXPECTED_DEVICES.items():
-        try:
-            bgp = _bgp_of(model, name)
-        except (KeyError, TypeError):
-            return False
-        if bgp.get("as_number") != EXPECTED_BGP_AS or str(bgp.get("router_id")) != expected["loopback0"]:
-            return False
-
-        neighbors = bgp.get("neighbors", []) or []
-        if {str(n.get("ip")) for n in neighbors} != EXPECTED_BGP_PEERS[name] or len(neighbors) != 2:
-            return False
-        for n in neighbors:
-            if n.get("remote_as") != EXPECTED_BGP_AS:
-                return False
-            if (str(n.get("update_source_interface_type")), n.get("update_source_interface_id")) != ("Loopback", 0):
-                return False
-
-        ipv4 = bgp.get("address_family", {}).get("ipv4_unicast", {}) or {}
-        networks = {(str(n.get("network")), str(n.get("mask"))) for n in ipv4.get("networks", []) or []}
-        if networks != {(EXPECTED_BRANCH_LAN[name], "255.255.255.255")}:
-            return False
-        active = {str(n.get("ip")) for n in ipv4.get("neighbors", []) or [] if n.get("activate") is True}
-        if active != EXPECTED_BGP_PEERS[name]:
-            return False
-    return True
-
-
-def check_todo_9():
-    bgp_file = DATA_DIR / "bgp.nac.yaml"
-    if not bgp_file.exists() or not SCHEMA_FILE.exists() or not RULES_DIR.is_dir():
-        return False
-    bgp = _load_yaml(bgp_file)
-    if _devices_of(bgp) is None or _contains_forbidden_key(bgp):
-        return False
-
-    with tempfile.TemporaryDirectory() as upto:
-        data9 = _data_dir_upto(upto, 9)
-
-        code, out, _ = run_nac_validate(data9, schema=SCHEMA_FILE, rules=RULES_DIR, extra=["-f", "json"])
-        if code != 0:
-            return False
-        code, out, _ = run_nac_validate(data9, schema=SCHEMA_FILE, rules=RULES_DIR, extra=["--list-rules"])
-        if code != 0 or "105" not in out:
-            return False
-
-        if not _bgp_in_merged_model_ok(data9):
-            return False
-
-    for _label, mutator in _bgp_schema_mutations():
-        with tempfile.TemporaryDirectory() as tmp:
-            data_dir = _mutated_full_dir(tmp, mutator, "bgp.nac.yaml", 9)
-            code, _, _ = run_nac_validate(data_dir, schema=SCHEMA_FILE)
-            if code != 2:
-                return False
-
-    for _label, mutator, expected_id in _bgp_rule_mutations():
-        with tempfile.TemporaryDirectory() as tmp:
-            data_dir = _mutated_full_dir(tmp, mutator, "bgp.nac.yaml", 9)
-            code, out, _ = run_nac_validate(data_dir, schema=SCHEMA_FILE, rules=RULES_DIR, extra=["-f", "json"])
-            if code != 1 or _rule_ids_from_json(out) != {expected_id}:
-                return False
-
-    if _terraform_exe() is None or not os.environ.get("IOSXE_USERNAME") or not os.environ.get("IOSXE_PASSWORD"):
-        return False
-    code, _, _ = run_terraform(["init", "-no-color"])
-    if code != 0:
-        return False
-    code, _, _ = run_terraform(["plan", "-detailed-exitcode", "-no-color"], timeout=900)
-    return code == 0 if TOTAL_TODOS == 9 else code in (0, 2)
-
-
-DRIFT_SCRIPT = ROOT / "drift_check.sh"
-NEIGHBOR_NAMES = {"10.255.0.10": "R10", "10.255.0.11": "R11", "10.255.0.12": "R12"}
-
-PROBLEMS[10] = (
     "One of these is not right yet. drift_check.sh must run terraform plan -detailed-exitcode and\n"
     "turn its exit code into a message and the same exit code: 0 prints a line starting IN SYNC, 2\n"
     "prints a line starting DRIFT plus the plan's 'Plan:' summary line, anything else prints a line\n"
-    "starting ERROR and exits 1. It may only plan, never apply. The BGP neighbor descriptions in\n"
-    "data/bgp.nac.yaml must be back to the router names, and terraform plan must show no changes."
+    "starting ERROR and exits 1. It may only plan, never apply. The Loopback10 description of every\n"
+    "router in data/ospf.nac.yaml must be back to BRANCH-LAN, and terraform plan must show no changes."
 )
-EXPECTED[10] = (
+EXPECTED[9] = (
     "bash drift_check.sh -> plan exit 0: 'IN SYNC ...' and exit 0.\n"
     "plan exit 2: 'DRIFT ...', the 'Plan: X to add, Y to change, Z to destroy.' line, and exit 2.\n"
     "plan exit 1 (or any other): 'ERROR ...' and exit 1.\n"
     "The plan output is saved in drift-plan.txt. The script never runs apply or destroy.\n"
-    "Every BGP neighbor description is the name of the peer (R10, R11, R12).\n"
+    "Every Loopback10 description is BRANCH-LAN again.\n"
     "terraform plan -detailed-exitcode exits 0."
 )
-HINTS[10] = (
+HINTS[9] = (
     "Save the plan output with > drift-plan.txt 2>&1, then read the exit code straight away with\n"
     "code=$?, because the next command overwrites $?. Compare it with [ \"$code\" -eq 0 ]. Put an\n"
     "exit in every branch. If plan still shows changes, run terraform apply, and make sure the\n"
-    "description in data/bgp.nac.yaml is back to the name of the peer."
+    "description of Loopback10 in data/ospf.nac.yaml is back to BRANCH-LAN."
 )
-SOLUTIONS[10] = """# drift_check.sh
+SOLUTIONS[9] = """# drift_check.sh
 #!/usr/bin/env bash
 # Compare the routers with the data model. Changes nothing.
 
@@ -1808,7 +1538,7 @@ def _drift_script_ok():
     return True
 
 
-def _neighbor_descriptions_restored(data_dir):
+def _branch_descriptions_restored(data_dir):
     with tempfile.TemporaryDirectory() as tmp:
         merged = Path(tmp) / "merged.yaml"
         code, _, _ = run_nac_validate(data_dir, extra=["-o", str(merged)])
@@ -1817,27 +1547,27 @@ def _neighbor_descriptions_restored(data_dir):
         model = _load_yaml(merged)
     for name in EXPECTED_DEVICES:
         try:
-            neighbors = _bgp_of(model, name)["neighbors"]
+            loopbacks = _device(model, name)["configuration"]["interfaces"]["loopbacks"]
         except (KeyError, TypeError):
             return False
-        for n in neighbors:
-            if n.get("description") != NEIGHBOR_NAMES.get(str(n.get("ip"))):
-                return False
+        branch = [lb for lb in loopbacks if lb.get("id") == 10]
+        if len(branch) != 1 or branch[0].get("description") != "BRANCH-LAN":
+            return False
     return True
 
 
-def check_todo_10():
+def check_todo_9():
     if not SCHEMA_FILE.exists() or not RULES_DIR.is_dir():
         return False
     if not _drift_script_ok():
         return False
 
     with tempfile.TemporaryDirectory() as upto:
-        data10 = _data_dir_upto(upto, 10)
-        code, _, _ = run_nac_validate(data10, schema=SCHEMA_FILE, rules=RULES_DIR, extra=["-f", "json"])
+        data9 = _data_dir_upto(upto, 9)
+        code, _, _ = run_nac_validate(data9, schema=SCHEMA_FILE, rules=RULES_DIR, extra=["-f", "json"])
         if code != 0:
             return False
-        if not _neighbor_descriptions_restored(data10):
+        if not _branch_descriptions_restored(data9):
             return False
 
     if _terraform_exe() is None or not os.environ.get("IOSXE_USERNAME") or not os.environ.get("IOSXE_PASSWORD"):
@@ -1846,35 +1576,32 @@ def check_todo_10():
     if code != 0:
         return False
     code, _, _ = run_terraform(["plan", "-detailed-exitcode", "-no-color"], timeout=900)
-    return code == 0 if TOTAL_TODOS == 10 else code in (0, 2)
+    return code == 0 if TOTAL_TODOS == 9 else code in (0, 2)
 
 
 TESTS_DIR = ROOT / "tests"
 TEST_FILE = TESTS_DIR / "verify_routers.robot"
 
-PROBLEMS[11] = (
+PROBLEMS[10] = (
     "One of these is not right yet. tests/verify_routers.robot must be a nac-test template that\n"
-    "turns the data model into Robot tests: per router a hostname test, per loopback a test, and per\n"
-    "BGP neighbor a test that the session is established with the right AS. The names, hosts and\n"
-    "values must come from the data, not be typed in. Login details come from the environment. And\n"
+    "turns the data model into Robot tests: per router a hostname test, and per loopback a test.\n"
+    "The names, hosts and values must come from the data, not be typed in. Login details come from the environment. And\n"
     "the tests must pass against the live routers."
 )
-EXPECTED[11] = (
-    "15 tests: '<router> hostname' (3), '<router> Loopback<id>' (6), '<router> BGP neighbor <ip>' (6).\n"
+EXPECTED[10] = (
+    "9 tests: '<router> hostname' (3), '<router> Loopback<id>' (6).\n"
     "hostname -> GET Cisco-IOS-XE-native:native/hostname, equals the hostname in the data.\n"
     "Loopback -> GET .../interface/Loopback=<id>, contains the loopback address from the data.\n"
-    "BGP neighbor -> GET Cisco-IOS-XE-bgp-oper:bgp-state-data/neighbors, state fsm-established,\n"
-    "AS equal to remote_as. Add a loopback or remove a neighbor in the data and the tests follow.\n"
+    "Add a loopback or change a management address in the data and the tests follow.\n"
     "Login from %{IOSXE_USERNAME} and %{IOSXE_PASSWORD}. nac-test exits 0 against the routers."
 )
-HINTS[11] = (
-    "Three nested Jinja loops: devices, then device.configuration.interfaces.loopbacks, then\n"
-    "device.configuration.routing.bgp.neighbors. Inside them {{ device.name }}, {{ device.host }},\n"
-    "{{ loopback.id }}, {{ loopback.ipv4.address }}, {{ neighbor.ip }} and {{ neighbor.remote_as }}\n"
+HINTS[10] = (
+    "Two nested Jinja loops: devices, then device.configuration.interfaces.loopbacks. Inside them\n"
+    "{{ device.name }}, {{ device.host }}, {{ loopback.id }} and {{ loopback.ipv4.address }}\n"
     "fill the blanks. Robot needs at least two spaces between a keyword and its arguments. If a live\n"
     "test fails, run curl against that router first (step 4) to see what it really returns."
 )
-SOLUTIONS[11] = """# tests/verify_routers.robot
+SOLUTIONS[10] = """# tests/verify_routers.robot
 *** Settings ***
 Documentation     The live routers match the data model
 Library           RequestsLibrary
@@ -1905,16 +1632,6 @@ Router Get
     Should Contain    ${text}    {{ loopback.ipv4.address }}
 
 {% endfor %}
-{% for neighbor in device.configuration.routing.bgp.neighbors | default([]) %}
-{{ device.name }} BGP neighbor {{ neighbor.ip }}
-    [Tags]    iosxe    bgp
-    ${neighbors}=    Router Get    {{ device.host }}    Cisco-IOS-XE-bgp-oper:bgp-state-data/neighbors
-    ${found}=    Evaluate    [n for n in $neighbors['neighbor'] if n['neighbor-id'] == '{{ neighbor.ip }}']
-    Should Not Be Empty    ${found}    no BGP session to {{ neighbor.ip }} on {{ device.name }}
-    Should Be Equal    ${found}[0][session-state]    fsm-established
-    Should Be Equal As Integers    ${found}[0][as]    {{ neighbor.remote_as }}
-
-{% endfor %}
 {% endfor %}
 """
 
@@ -1923,7 +1640,7 @@ def _nac_test_exe():
     return shutil.which("nac-test")
 
 
-def _expected_tests(hosts=None, loopbacks_extra=None, drop_neighbor=None):
+def _expected_tests(hosts=None, loopbacks_extra=None):
     """name -> list of substrings the rendered test body must contain."""
     hosts = hosts or {}
     tests = {}
@@ -1934,12 +1651,6 @@ def _expected_tests(hosts=None, loopbacks_extra=None, drop_neighbor=None):
         lo.update((loopbacks_extra or {}).get(name, {}))
         for lid, address in lo.items():
             tests[f"{name} Loopback{lid}"] = [host, f"interface/Loopback={lid}", address]
-        for ip in sorted(EXPECTED_BGP_PEERS[name]):
-            if drop_neighbor == (name, ip):
-                continue
-            tests[f"{name} BGP neighbor {ip}"] = [
-                host, "bgp-state-data/neighbors", ip, "fsm-established", str(EXPECTED_BGP_AS),
-            ]
     return tests
 
 
@@ -1996,12 +1707,6 @@ def _robot_mutations():
         )
         path.write_text(yaml.safe_dump(model, sort_keys=False), encoding="utf-8")
 
-    def lost_neighbor(d):
-        path = d / "bgp.nac.yaml"
-        model = _load_yaml(path)
-        _bgp_of(model, "R12")["neighbors"].pop(0)
-        path.write_text(yaml.safe_dump(model, sort_keys=False), encoding="utf-8")
-
     def moved_router(d):
         path = d / "devices.nac.yaml"
         model = _load_yaml(path)
@@ -2011,8 +1716,6 @@ def _robot_mutations():
     return [
         ("a loopback added to R11 -> a new test appeared", new_loopback,
          _expected_tests(loopbacks_extra={"R11": {20: "172.16.20.1"}})),
-        ("a BGP neighbor removed from R12 -> its test disappeared", lost_neighbor,
-         _expected_tests(drop_neighbor=("R12", "10.255.0.10"))),
         ("R12 given another management address -> its tests followed", moved_router,
          _expected_tests(hosts={"R12": "10.10.10.99"})),
     ]
@@ -2028,25 +1731,25 @@ def _robot_file_ok():
     return not re.search(r"(?i)password|secret|token", stripped)
 
 
-def check_todo_11():
+def check_todo_10():
     if not _robot_file_ok() or _nac_test_exe() is None:
         return False
 
     with tempfile.TemporaryDirectory() as tmp:
-        data = _data_dir_upto(tmp, 11)
+        data = _data_dir_upto(tmp, 10)
         if not _tests_match(_render_robot(data, tmp), _expected_tests()):
             return False
 
     for _label, mutate, expected in _robot_mutations():
         with tempfile.TemporaryDirectory() as tmp:
-            data = _data_dir_upto(tmp, 11)
+            data = _data_dir_upto(tmp, 10)
             mutate(data)
             if not _tests_match(_render_robot(data, tmp), expected):
                 return False
 
     # syntax: Robot's dry run checks every keyword without contacting a router
     with tempfile.TemporaryDirectory() as tmp:
-        data = _data_dir_upto(tmp, 11)
+        data = _data_dir_upto(tmp, 10)
         env = dict(os.environ)
         env.setdefault("IOSXE_USERNAME", "dry-run")
         env.setdefault("IOSXE_PASSWORD", "dry-run")
@@ -2064,7 +1767,7 @@ def check_todo_11():
     if not os.environ.get("IOSXE_USERNAME") or not os.environ.get("IOSXE_PASSWORD"):
         return False
     with tempfile.TemporaryDirectory() as tmp:
-        data = _data_dir_upto(tmp, 11)
+        data = _data_dir_upto(tmp, 10)
         try:
             proc = subprocess.run(
                 [_nac_test_exe(), "-d", str(data), "-t", str(TESTS_DIR), "-o", str(Path(tmp) / "live")],
@@ -2080,14 +1783,14 @@ AUDIT_FILE = ROOT / "audit.log"
 AUDIT_FIELDS = {"time", "run", "user", "stage", "command", "exit_code", "result"}
 STAGE_ORDER = ["validate", "plan", "apply", "verify"]
 
-PROBLEMS[12] = (
+PROBLEMS[11] = (
     "One of these is not right yet. pipeline.py must run four stages in order, validate, plan, apply\n"
     "and verify, and stop at the first failure. Apply may only run when --apply was given and the plan\n"
     "found changes. Every stage, including skipped ones, must be written to audit.log as one JSON line\n"
     "with time, run, user, stage, command, exit_code and result. And audit.log must show that you ran\n"
     "it for real: a run stopped by validation, and a run that applied a change."
 )
-EXPECTED[12] = (
+EXPECTED[11] = (
     "validate -> nac-validate data -s .schema.yaml -r rules; fail stops everything.\n"
     "plan -> terraform plan -detailed-exitcode; 0 PASS, 2 CHANGES, anything else FAIL.\n"
     "apply -> terraform apply -auto-approve, only with --apply and only after CHANGES; else SKIPPED.\n"
@@ -2096,14 +1799,14 @@ EXPECTED[12] = (
     "audit.log is appended to, one JSON object per line, no credentials in it.\n"
     "terraform plan -detailed-exitcode exits 0."
 )
-HINTS[12] = (
+HINTS[11] = (
     "Loop over STAGES. At the top of the loop, decide whether to skip: the pipeline already failed, or\n"
     "this is the apply stage and it is not approved or there are no changes. A skipped stage still calls\n"
     "record, with None as the exit code. Plan is the one stage where exit code 2 is not a failure. If the\n"
     "audit.log check fails, run the pipeline for real as the steps describe: once with broken data, once\n"
     "with --apply after making drift."
 )
-SOLUTIONS[12] = """# pipeline.py
+SOLUTIONS[11] = """# pipeline.py
 #!/usr/bin/env python3
 # Run the NaC pipeline: validate, plan, apply (only when approved), verify. Write an audit log.
 import json
@@ -2374,7 +2077,7 @@ def _real_audit_log_ok():
     return gate_stop and applied
 
 
-def check_todo_12():
+def check_todo_11():
     if not _pipeline_source_ok() or not _pipeline_scenarios_ok():
         return False
     if not _real_audit_log_ok():
@@ -2392,8 +2095,7 @@ def check_todo_12():
 CHECKS = {
     1: check_todo_1, 2: check_todo_2, 3: check_todo_3, 4: check_todo_4,
     5: check_todo_5, 6: check_todo_6, 7: check_todo_7, 8: check_todo_8,
-    9: check_todo_9, 10: check_todo_10,
-    11: check_todo_11, 12: check_todo_12,
+    9: check_todo_9, 10: check_todo_10, 11: check_todo_11,
 }
 
 
@@ -2427,10 +2129,9 @@ def print_todo_details(number, statuses):
         6: "[6] First push to R10, R11 and R12...",
         7: "[7] Static routes and an ACL...",
         8: "[8] OSPF across the branch routers...",
-        9: "[9] BGP peering...",
-        10: "[10] Detecting and reconciling drift...",
-        11: "[11] Verifying live state with nac-test...",
-        12: "[12] Gating the pipeline and writing the audit log...",
+        9: "[9] Detecting and reconciling drift...",
+        10: "[10] Verifying live state with nac-test...",
+        11: "[11] Gating the pipeline and writing the audit log...",
     }
     console.print(titles[number])
     if not statuses[number]:
@@ -2480,32 +2181,21 @@ def print_todo_details(number, statuses):
             console.print(f"  injected: {label} -> rule {rule_id} fired (exit 1)")
         console.print("  terraform plan -> no changes")
     elif number == 9:
-        for name, lan in EXPECTED_BRANCH_LAN.items():
-            peers = " ".join(sorted(EXPECTED_BGP_PEERS[name]))
-            console.print(f"  {name} -> AS {EXPECTED_BGP_AS}, peers {peers}, advertises {lan}/32")
-        console.print("  every neighbor -> sourced from Loopback0 and activated in ipv4 unicast")
-        console.print("  real data -> passes schema and rules 101 to 105 (exit 0)")
-        for label, _ in _bgp_schema_mutations():
-            console.print(f"  injected: {label} -> rejected (exit 2)")
-        for label, _, rule_id in _bgp_rule_mutations():
-            console.print(f"  injected: {label} -> rule {rule_id} fired (exit 1)")
-        console.print("  terraform plan -> no changes")
-    elif number == 10:
         console.print("  drift_check.sh -> plan exit 0 prints IN SYNC and exits 0")
         console.print("  drift_check.sh -> plan exit 2 prints DRIFT and the Plan line, exits 2")
         console.print("  drift_check.sh -> any other plan exit prints ERROR, exits 1")
         console.print("  drift_check.sh -> only ever runs plan (no apply, no destroy)")
-        console.print("  BGP neighbor descriptions -> back to R10, R11, R12")
+        console.print("  Loopback10 descriptions -> back to BRANCH-LAN")
         console.print("  terraform plan -> no changes")
-    elif number == 11:
+    elif number == 10:
         console.print("  tests/verify_routers.robot -> rendered by nac-test from the data model")
-        console.print("  15 tests: 3 hostname, 6 loopback, 6 BGP neighbor, all built from the data")
+        console.print("  9 tests: 3 hostname and 6 loopback, all built from the data")
         console.print("  login -> read from IOSXE_USERNAME and IOSXE_PASSWORD, none in the file")
         for label, _, _ in _robot_mutations():
             console.print(f"  injected: {label}")
         console.print("  robot dry run -> every keyword resolves")
         console.print("  live run -> every test passes on R10, R11 and R12")
-    elif number == 12:
+    elif number == 11:
         console.print("  pipeline.py -> validate, plan, apply, verify, in that order")
         console.print("  gate -> a failed stage stops the rest, which are logged SKIPPED")
         console.print("  apply -> only with --apply and only when the plan found changes")
@@ -2570,7 +2260,7 @@ def feedback(failed):
 
     if answer == "s":
         console.print()
-        lexer = {4: "python", 5: "terraform", 6: "terraform", 7: "text", 8: "text", 9: "text", 10: "bash", 11: "text", 12: "python"}.get(failed, "yaml")
+        lexer = {4: "python", 5: "terraform", 6: "terraform", 7: "text", 8: "text", 9: "bash", 10: "text", 11: "python"}.get(failed, "yaml")
         syntax = Syntax(SOLUTIONS[failed], lexer, theme="ansi_dark", line_numbers=False, word_wrap=True)
         console.print(Panel(syntax, title="Solution", title_align="left", border_style=GREEN, padding=(0, 1)))
         console.print()

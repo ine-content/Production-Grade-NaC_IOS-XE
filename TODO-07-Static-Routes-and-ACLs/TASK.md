@@ -262,25 +262,7 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
    Press Enter to accept the file name. Use bootflash: if flash: isn't
    accepted. The listing must show a size above zero.
 
-5. On CWS: Terraform's record of the earlier work is already in this folder
-   from Before You Start, so there is nothing to copy.
-
-   Make sure the router login is set in this terminal. The variables stay
-   set while the terminal stays open, even when you change folders, so if
-   you are still in the terminal from TODO 06 you don't need to do anything.
-   Check them:
-
-     echo "$IOSXE_USERNAME"
-     [ -n "$IOSXE_PASSWORD" ] && echo "password is set" || echo "password NOT set"
-
-   If the username is empty or the password says NOT set (a new terminal, or
-   after a reboot), set them again, the same way as in TODO 06:
-
-     export IOSXE_USERNAME=<your username>
-     read -s IOSXE_PASSWORD; export IOSXE_PASSWORD
-
-   After the second command, type the password and press Enter. Nothing is
-   shown on screen. Then run:
+5. On CWS: Run:
 
      terraform plan
 

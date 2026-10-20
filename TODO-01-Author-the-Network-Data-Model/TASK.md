@@ -77,8 +77,6 @@ Static Routes and ACLs
         ↓
 OSPF Across the Branch Routers
         ↓
-BGP Peering
-        ↓
 Detect and Reconcile Drift
         ↓
 Verify Live State with nac-test
@@ -86,7 +84,7 @@ Verify Live State with nac-test
 Gate the Pipeline and Emit an Audit Log
 ```
 
-Each stage is one lab, TODO 01 to TODO 12. TODO 01 to TODO 04 run entirely on your own machine. No router is touched until TODO 06.
+Each stage is one lab, TODO 01 to TODO 11. TODO 01 to TODO 04 run entirely on your own machine. No router is touched until TODO 06.
 
 </details>
 

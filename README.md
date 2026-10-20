@@ -20,7 +20,7 @@ These apply to every TODO that touches a router.
 - Routing labs advertise loopbacks, not the management interface.
 - Credentials never go in YAML or Terraform files. They come from environment variables.
 - Every router-touching TODO has a reset step, so a failed run can't leave a router broken.
-- Each TODO can be done on its own. From TODO 07 on, a "Before You Start" section tells you how to check that the routers carry the earlier TODOs' work, and and the baseline `terraform apply` that catches them up and gives the folder Terraform's record of the earlier work.
+- Each TODO can be done on its own. From TODO 07 on, a "Before You Start" section tells you how to check that the routers carry the earlier TODOs' work, and the baseline `terraform apply` that catches them up and gives the folder Terraform's record of the earlier work.
 - Terraform changes only a router's running configuration. Run `write memory` on a router after each change you want to keep, and after each reset. Otherwise a reload goes back to the startup configuration and the change is gone.
 
 ## Router setup (needed from TODO 06)
@@ -49,10 +49,9 @@ Port 830 has to be reachable from CWS (10.10.10.250). If the routers use AAA, ma
 | 06 | First Push to R10-R12 | Yes | Built; not yet run on real routers |
 | 07 | Static Routes and ACLs | Yes | Built; not yet run on real routers |
 | 08 | OSPF Across the Branch Routers | Yes | Built; not yet run on real routers |
-| 09 | BGP Peering | Yes | Built; not yet run on real routers |
-| 10 | Detect and Reconcile Drift | Yes | Built; not yet run on real routers |
-| 11 | Verify Live State with nac-test | Yes | Built; not yet run on real routers |
-| 12 | Gate the Pipeline and Emit an Audit Log | Yes | Built; not yet run on real routers |
+| 09 | Detect and Reconcile Drift | Yes | Built; not yet run on real routers |
+| 10 | Verify Live State with nac-test | Yes | Built; not yet run on real routers |
+| 11 | Gate the Pipeline and Emit an Audit Log | Yes | Built; not yet run on real routers |
 
 ## How to use it
 

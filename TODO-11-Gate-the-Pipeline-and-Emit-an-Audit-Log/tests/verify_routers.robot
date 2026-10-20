@@ -28,14 +28,4 @@ Router Get
     Should Contain    ${text}    {{ loopback.ipv4.address }}
 
 {% endfor %}
-{% for neighbor in device.configuration.routing.bgp.neighbors | default([]) %}
-{{ device.name }} BGP neighbor {{ neighbor.ip }}
-    [Tags]    iosxe    bgp
-    ${neighbors}=    Router Get    {{ device.host }}    Cisco-IOS-XE-bgp-oper:bgp-state-data/neighbors
-    ${found}=    Evaluate    [n for n in $neighbors['neighbor'] if n['neighbor-id'] == '{{ neighbor.ip }}']
-    Should Not Be Empty    ${found}    no BGP session to {{ neighbor.ip }} on {{ device.name }}
-    Should Be Equal    ${found}[0][session-state]    fsm-established
-    Should Be Equal As Integers    ${found}[0][as]    {{ neighbor.remote_as }}
-
-{% endfor %}
 {% endfor %}

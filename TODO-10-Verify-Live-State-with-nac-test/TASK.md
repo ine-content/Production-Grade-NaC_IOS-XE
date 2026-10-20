@@ -1,4 +1,4 @@
-# TODO 11 — Verify Live State with nac-test
+# TODO 10 — Verify Live State with nac-test
 
 ## Topics Covered
 
@@ -6,21 +6,21 @@
 ✓ Why a clean plan doesn't prove the network works
 ✓ Turning the data model into tests with nac-test and Jinja
 ✓ Reading live router state over RESTCONF
-✓ Checking running state: hostname, loopbacks, BGP sessions
+✓ Checking running state: hostname and loopbacks
 ✓ Tests that follow the data: change the data and the tests change
 ```
 
 ## Recap
 
-TODO 10 is solved in this folder, including `drift_check.sh`. Terraform can tell you the router's configuration matches the data model. That is not the same as the network working. A BGP neighbor can be configured exactly as written and still be down. In this TODO you write tests that ask the routers what they are doing right now.
+TODO 09 is solved in this folder, including `drift_check.sh`. Terraform can tell you the router's configuration matches the data model. That is not the same as the network working. An interface can be configured exactly as written and still be wrong on the router, for example after a manual change that Terraform has not looked at yet. In this TODO you write tests that ask the routers what they are doing right now.
 
 ## Scenario
 
-`nac-test` takes the same data model you have been building and a folder of test templates. It renders the templates with the data, so one template becomes many tests, and then runs them with Robot Framework. Add a router or a neighbor to the data and the tests for it appear without anyone writing them.
+`nac-test` takes the same data model you have been building and a folder of test templates. It renders the templates with the data, so one template becomes many tests, and then runs them with Robot Framework. Add a router or a loopback to the data and the tests for it appear without anyone writing them.
 
 The tests talk to each router over RESTCONF, the HTTPS interface of IOS-XE. A RESTCONF request is a normal web request to an address such as `https://10.10.10.10/restconf/data/...`. The router answers with JSON. Terraform used NETCONF in the earlier TODOs. RESTCONF is a different door into the same router, and it is the easier one to call from a test.
 
-You write one template, `tests/verify_routers.robot`, with three kinds of test. For each router, check the hostname. For each loopback in the data, check that the router has it with the right address. For each BGP neighbor in the data, check that the session is `fsm-established` and the neighbor's AS number is the one in the data. That is 15 tests for the three routers.
+You write one template, `tests/verify_routers.robot`, with two kinds of test. For each router, check the hostname. For each loopback in the data, check that the router has it with the right address. That is 9 tests for the three routers: three hostname tests and six loopback tests.
 
 One thing needs doing on the routers first. RESTCONF is off until you turn it on, so step 3 enables it. Nothing else on the routers changes, and Terraform doesn't manage it.
 
@@ -72,7 +72,6 @@ One file, `tests/verify_routers.robot`, rendered from the merged data. It makes 
 |-----------|-------|---------------------------------------------|-----------|
 | `<router> hostname` | each device | `Cisco-IOS-XE-native:native/hostname` | the answer equals `configuration.system.hostname` |
 | `<router> Loopback<id>` | each loopback of each device | `Cisco-IOS-XE-native:native/interface/Loopback=<id>` | the answer contains the loopback's `ipv4.address` |
-| `<router> BGP neighbor <ip>` | each BGP neighbor of each device | `Cisco-IOS-XE-bgp-oper:bgp-state-data/neighbors` | the neighbor `<ip>` is there, its `session-state` is `fsm-established`, and its `as` equals `remote_as` |
 
 Every request goes to the device's `host` from the data model, over HTTPS. The router's certificate is self-signed, so the tests don't verify it. The login comes from the terminal's environment (`%{IOSXE_USERNAME}` and `%{IOSXE_PASSWORD}` in Robot). No credentials may appear in the file. The tests never change anything on a router.
 
@@ -91,21 +90,21 @@ Everything else in a skeleton is already filled in and must stay as it is.
 Do everything for this TODO from its own folder. Open a terminal and run:
 
 ```
-cd ~/Production-Grade-NaC_IOS-XE/TODO-11-Verify-Live-State-with-nac-test
+cd ~/Production-Grade-NaC_IOS-XE/TODO-10-Verify-Live-State-with-nac-test
 ```
 
 Change the path if you put the course folder somewhere else.
 
 ## Before You Start
 
-You can do each TODO on its own, so this one starts from routers that already carry the work of the TODOs before it: everything from TODO 06 to 09 (TODO 10 adds no router configuration).
+You can do each TODO on its own, so this one starts from routers that already carry the work of the TODOs before it: everything from TODO 06 to 08 (TODO 09 adds no router configuration).
 
 Here is how to check R10:
 
-     show running-config | section router bgp
-     show ip bgp summary
+     show ip ospf neighbor
+     show running-config interface Loopback10
 
-You should see router bgp 65010 with R10's two neighbors, and both neighbors in the summary with a number in the last column, not Idle or Active.
+You should see two neighbors in state FULL, and Loopback10 with the description BRANCH-LAN and R10's address 172.16.10.1, mask 255.255.255.255.
 
 Whether or not the routers already look like that, start with a baseline apply. This folder already holds the solved data and main.tf for everything before this TODO. The apply does two things: it gives Terraform a record of that earlier work in this folder, so later plans show only this TODO's changes, and it brings any router that is behind up to date (new routers, a router you reset, a restored snapshot). If a router already has the work, the apply simply matches it. On CWS, in this folder, set the router login:
 
@@ -137,8 +136,8 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
 
 2. On R10, R11, R12: Take a snapshot on each router, then check it:
 
-     copy running-config flash:before-todo11.cfg
-     dir flash:before-todo11.cfg
+     copy running-config flash:before-todo10.cfg
+     dir flash:before-todo10.cfg
 
    Press Enter to accept the file name. Use bootflash: if flash: isn't
    accepted. The listing must show a size above zero.
@@ -166,24 +165,8 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
      write memory
 
 4. On CWS: Ask each router for its hostname the way a test will. This
-   needs the router login in this terminal.
+   needs the router login from Before You Start, still set in this terminal.
 
-   Make sure the router login is set in this terminal. The variables stay
-   set while the terminal stays open, even when you change folders, so if
-   you are still in the terminal from TODO 06 you don't need to do anything.
-   Check them:
-
-     echo "$IOSXE_USERNAME"
-     [ -n "$IOSXE_PASSWORD" ] && echo "password is set" || echo "password NOT set"
-
-   If the username is empty or the password says NOT set (a new terminal, or
-   after a reboot), set them again, the same way as in TODO 06:
-
-     export IOSXE_USERNAME=<your username>
-     read -s IOSXE_PASSWORD; export IOSXE_PASSWORD
-
-   After the second command, type the password and press Enter. Nothing is
-   shown on screen.
 
    Then run:
 
@@ -229,21 +212,11 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
          Should Contain    ${text}    ...
 
      {% endfor %}
-     {% for neighbor in ... | default([]) %}
-     ... BGP neighbor ...
-         ${neighbors}=    Router Get    ...    Cisco-IOS-XE-bgp-oper:bgp-state-data/neighbors
-         ${found}=    Evaluate    [n for n in $neighbors['neighbor'] if n['neighbor-id'] == '...']
-         Should Not Be Empty    ${found}    no BGP session to ... on ...
-         Should Be Equal    ${found}[0][session-state]    fsm-established
-         Should Be Equal As Integers    ${found}[0][as]    ...
-
-     {% endfor %}
      {% endfor %}
 
    - Every ... is a Jinja value in double curly braces, such as
      {{ device.name }}. The loops use the same dotted names.
    - The loopbacks are under device.configuration.interfaces.loopbacks.
-   - The BGP neighbors are under device.configuration.routing.bgp.neighbors.
    - The name of a test is the first thing on its line, with no spaces
      in front. It must match the Technical Requirements table exactly.
    - Router Get takes the router's address first, then the path.
@@ -254,13 +227,13 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
      nac-test -d data -t tests -o test-results --render-only
      grep -E '^R1[0-2] ' test-results/robot_results/verify_routers.robot
 
-   You should see the 15 test names, listed in Test It Yourself.
+   You should see the 9 test names, listed in Test It Yourself.
 
 7. On CWS: Run them against the routers:
 
      nac-test -d data -t tests -o test-results
 
-   Wait for the summary. All 15 must pass.
+   Wait for the summary. All 9 must pass.
 
 8. On CWS: Run: python grading.py
 ```
@@ -275,24 +248,18 @@ Step 4 should have printed one line per router:
 {"Cisco-IOS-XE-native:hostname":"R12"}
 ```
 
-After step 6, the names of the 15 tests are:
+After step 6, the names of the 9 tests are:
 
 ```
 R10 hostname
 R10 Loopback0
 R10 Loopback10
-R10 BGP neighbor 10.255.0.11
-R10 BGP neighbor 10.255.0.12
 R11 hostname
 R11 Loopback0
 R11 Loopback10
-R11 BGP neighbor 10.255.0.10
-R11 BGP neighbor 10.255.0.12
 R12 hostname
 R12 Loopback0
 R12 Loopback10
-R12 BGP neighbor 10.255.0.10
-R12 BGP neighbor 10.255.0.11
 ```
 
 Check the template without touching a router. A Robot dry run walks through every keyword and reports any it doesn't know, but sends no request:
@@ -301,7 +268,7 @@ Check the template without touching a router. A Robot dry run walks through ever
 nac-test -d data -t tests -o test-results --dry-run
 ```
 
-It must end with `All tests passed: 15 out of 15 tests`. If it reports a keyword or a syntax problem, fix the template first.
+It must end with `All tests passed: 9 out of 9 tests`. If it reports a keyword or a syntax problem, fix the template first.
 
 Check that the tests really come from the data. Give R12 a different management address for a moment, render, and count where the new address shows up:
 
@@ -312,40 +279,40 @@ grep -c '10.10.10.99' test-results/robot_results/verify_routers.robot
 mv data/devices.nac.yaml.bak data/devices.nac.yaml
 ```
 
-The count should be `5`, one line for each of R12's five tests. If it is lower, an address was typed into the template instead of coming from the data. Render again after the `mv` so the output folder matches your real data.
+The count should be `3`, one line for each of R12's three tests. If it is lower, an address was typed into the template instead of coming from the data. Render again after the `mv` so the output folder matches your real data.
 
 A live run that passes ends like this. The times differ:
 
 ```
-15 tests, 15 passed, 0 failed, 0 skipped.
+9 tests, 9 passed, 0 failed, 0 skipped.
 ```
 
-Now break something on a router, which the plan from TODO 10 would not have noticed as a broken network. On R12:
+Now break something on a router, which the plan from TODO 09 would not have noticed as a broken network. On R12:
 
 ```
 configure terminal
- router bgp 65010
-  neighbor 10.255.0.10 shutdown
+ interface Loopback10
+  ip address 172.16.12.99 255.255.255.255
 end
 ```
 
-Wait ten seconds and run the tests again:
+Run the tests again:
 
 ```
 nac-test -d data -t tests -o test-results
 echo $?
 ```
 
-Expect two failures, because the session is down from both ends: `R12 BGP neighbor 10.255.0.10` and `R10 BGP neighbor 10.255.0.12`. The message under each says the state is not `fsm-established`. The exact word the router reports can differ. The exit code is the number of failed tests, so `2`. The other 13 still pass. Then put it back on R12:
+Expect one failure, `R12 Loopback10`. The message under it says the answer from the router does not contain `172.16.12.1`. The exit code is the number of failed tests, so `1`. The other 8 still pass. A plan would also notice this one, but only the test says in plain words which check failed. Then put it back on R12:
 
 ```
 configure terminal
- router bgp 65010
-  no neighbor 10.255.0.10 shutdown
+ interface Loopback10
+  ip address 172.16.12.1 255.255.255.255
 end
 ```
 
-Wait about a minute for the session to come up and run the tests again. They must pass again.
+Run the tests again. They must pass again.
 
 ## Put a router back
 
@@ -359,7 +326,7 @@ configure terminal
 end
 ```
 
-Leave out any line that was already in the configuration before step 3, because something else may depend on it. Leave BGP, OSPF and the rest alone. The snapshot from step 2 can also put a router back in one command with `configure replace flash:before-todo11.cfg`. It replaces the whole running configuration, so use it only if nothing else changed on that router since the snapshot.
+Leave out any line that was already in the configuration before step 3, because something else may depend on it. Leave OSPF and the rest alone. The snapshot from step 2 can also put a router back in one command with `configure replace flash:before-todo10.cfg`. It replaces the whole running configuration, so use it only if nothing else changed on that router since the snapshot.
 
 Terraform isn't involved, so `terraform plan` is not affected either way.
 
@@ -371,17 +338,17 @@ Terraform isn't involved, so `terraform plan` is not affected either way.
 python grading.py
 ```
 
-Run it in the terminal where you exported `IOSXE_USERNAME` and `IOSXE_PASSWORD`. The grader re-checks TODO 01 to TODO 10 first, each against only the data files that belong to it. Then it checks that your template reads the login from the environment and has none typed in. It renders the template with nac-test and compares the 15 tests, names and contents, with what the data says. It changes the data three times in a temporary copy, adding a loopback, removing a BGP neighbor and moving R12 to a new address, and the rendered tests must change with it. A Robot dry run must pass. Last, it runs the real tests against R10, R11 and R12, and every one must pass. Your real files are never touched, and nothing is changed on a router.
+Run it in the terminal where you exported `IOSXE_USERNAME` and `IOSXE_PASSWORD`. The grader re-checks TODO 01 to TODO 09 first, each against only the data files that belong to it. Then it checks that your template reads the login from the environment and has none typed in. It renders the template with nac-test and compares the 9 tests, names and contents, with what the data says. It changes the data twice in a temporary copy, adding a loopback and moving R12 to a new address, and the rendered tests must change with it. A Robot dry run must pass. Last, it runs the real tests against R10, R11 and R12, and every one must pass. Your real files are never touched, and nothing is changed on a router.
 
 Before you complete this TODO:
 
 ```
-TODO 11 - Verify Live State with nac-test
+TODO 10 - Verify Live State with nac-test
 ────────────────────────────────────────────────────────────────────────────────
 
-[11] Verifying live state with nac-test...
+[10] Verifying live state with nac-test...
 
-✗ TODO 11 Not Complete
+✗ TODO 10 Not Complete
 
 The pipeline cannot continue because the live state is not yet verified by tests generated from the data model.
 
@@ -391,20 +358,19 @@ Proceeding to detailed feedback...
 After you complete it correctly:
 
 ```
-TODO 11 - Verify Live State with nac-test
+TODO 10 - Verify Live State with nac-test
 ────────────────────────────────────────────────────────────────────────────────
 
-[11] Verifying live state with nac-test...
+[10] Verifying live state with nac-test...
   tests/verify_routers.robot -> rendered by nac-test from the data model
-  15 tests: 3 hostname, 6 loopback, 6 BGP neighbor, all built from the data
+  9 tests: 3 hostname and 6 loopback, all built from the data
   login -> read from IOSXE_USERNAME and IOSXE_PASSWORD, none in the file
   injected: a loopback added to R11 -> a new test appeared
-  injected: a BGP neighbor removed from R12 -> its test disappeared
   injected: R12 given another management address -> its tests followed
   robot dry run -> every keyword resolves
   live run -> every test passes on R10, R11 and R12
 
-✓ TODO 11 Complete
+✓ TODO 10 Complete
 The tests are generated from the data model and the live routers pass every one of them.
 ```
 

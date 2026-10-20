@@ -29,7 +29,6 @@ ipv4:
 routing:
   static_routes: list(include('static_route'), required=False)
   ospf_processes: list(include('ospf_process'), required=False)
-  bgp: include('bgp', required=False)
 static_route:
   prefix: ip(version=4)
   mask: ip(version=4)
@@ -59,27 +58,3 @@ ospf_network:
 interface_ref:
   interface_type: str()
   interface_id: int(min=0)
-bgp:
-  as_number: int(min=1, max=4294967295)
-  router_id: ip(version=4, required=False)
-  default_ipv4_unicast: bool(required=False)
-  log_neighbor_changes: bool(required=False)
-  neighbors: list(include('bgp_neighbor'), required=False)
-  address_family: include('bgp_address_family', required=False)
-bgp_neighbor:
-  ip: ip(version=4)
-  remote_as: int(min=1, max=4294967295)
-  description: str(required=False)
-  update_source_interface_type: str(required=False)
-  update_source_interface_id: int(min=0, required=False)
-bgp_address_family:
-  ipv4_unicast: include('bgp_ipv4_unicast', required=False)
-bgp_ipv4_unicast:
-  networks: list(include('bgp_network'), required=False)
-  neighbors: list(include('bgp_af_neighbor'), required=False)
-bgp_network:
-  network: ip(version=4)
-  mask: ip(version=4)
-bgp_af_neighbor:
-  ip: ip(version=4)
-  activate: bool(required=False)

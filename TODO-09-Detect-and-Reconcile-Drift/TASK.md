@@ -1,4 +1,4 @@
-# TODO 10 — Detect and Reconcile Drift
+# TODO 09 — Detect and Reconcile Drift
 
 ## Topics Covered
 
@@ -12,13 +12,13 @@
 
 ## Recap
 
-TODO 09 is solved in this folder: static routes, the ACL, OSPF and BGP are in the data model, in the schema, under rules 101 to 105, and on the routers. They stay as they are. This TODO adds no new router configuration. You build a drift check, then make some drift on purpose and clear it.
+TODO 08 is solved in this folder: static routes, the ACL and OSPF are in the data model, in the schema, under rules 101 to 104, and on the routers. They stay as they are. This TODO adds no new router configuration. You build a drift check, then make some drift on purpose and clear it.
 
 ## Scenario
 
 The data model says what the routers should look like. Someone logs in at 2 a.m. to fix something, types a command, and goes home. The router now differs from the data model, and nobody wrote it down. That gap is drift.
 
-Terraform can find it. `terraform plan` reads the live router, compares it with the data model, and lists what it would change. The exit code of `terraform plan -detailed-exitcode` is a clean signal: `0` nothing to change, `2` there are differences, `1` an error. You will wrap that in a small script, `drift_check.sh`, which prints one clear line and passes the same exit code on. In TODO 12 a pipeline will call it.
+Terraform can find it. `terraform plan` reads the live router, compares it with the data model, and lists what it would change. The exit code of `terraform plan -detailed-exitcode` is a clean signal: `0` nothing to change, `2` there are differences, `1` an error. You will wrap that in a small script, `drift_check.sh`, which prints one clear line and passes the same exit code on. In TODO 11 a pipeline will call it.
 
 When the check says DRIFT, someone has to decide which side is right. There are two answers:
 
@@ -71,7 +71,7 @@ Things to notice:
 
 The full plan output goes into `drift-plan.txt` in this folder every time. The text after the first word is up to you. The script may only plan. It must never run `apply` or `destroy`, and it must not contain any login details. They come from the environment, as in TODO 06.
 
-After you finish, the BGP neighbor descriptions in `data/bgp.nac.yaml` must be back to the name of the peer (R10, R11, R12), and `terraform plan` must show no changes.
+After you finish, the description of Loopback10 on every router in `data/ospf.nac.yaml` must be back to `BRANCH-LAN`, and `terraform plan` must show no changes.
 
 ## Notation Used Below
 
@@ -88,21 +88,21 @@ Everything else in a skeleton is already filled in and must stay as it is.
 Do everything for this TODO from its own folder. Open a terminal and run:
 
 ```
-cd ~/Production-Grade-NaC_IOS-XE/TODO-10-Detect-and-Reconcile-Drift
+cd ~/Production-Grade-NaC_IOS-XE/TODO-09-Detect-and-Reconcile-Drift
 ```
 
 Change the path if you put the course folder somewhere else.
 
 ## Before You Start
 
-You can do each TODO on its own, so this one starts from routers that already carry the work of the TODOs before it: everything from TODO 06 to 08, plus BGP from TODO 09.
+You can do each TODO on its own, so this one starts from routers that already carry the work of the TODOs before it: everything from TODO 06 to 08.
 
 Here is how to check R10:
 
-     show running-config | section router bgp
-     show ip bgp summary
+     show ip ospf neighbor
+     show running-config interface Loopback10
 
-You should see router bgp 65010 with R10's two neighbors, and both neighbors in the summary with a number in the last column, not Idle or Active.
+You should see two neighbors in state FULL, and Loopback10 with the description BRANCH-LAN and R10's address 172.16.10.1, mask 255.255.255.255.
 
 Whether or not the routers already look like that, start with a baseline apply. This folder already holds the solved data and main.tf for everything before this TODO. The apply does two things: it gives Terraform a record of that earlier work in this folder, so later plans show only this TODO's changes, and it brings any router that is behind up to date (new routers, a router you reset, a restored snapshot). If a router already has the work, the apply simply matches it. On CWS, in this folder, set the router login:
 
@@ -150,32 +150,13 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
 
 2. On R10, R11 and R12: Take a snapshot on each router, then check it:
 
-     copy running-config flash:before-todo10.cfg
-     dir flash:before-todo10.cfg
+     copy running-config flash:before-todo09.cfg
+     dir flash:before-todo09.cfg
 
    Press Enter to accept the file name. Use bootflash: if flash: isn't
    accepted. The listing must show a size above zero.
 
-3. On CWS: Terraform's record of the earlier work is already in this folder
-   from Before You Start, so there is nothing to copy.
-
-   Make sure the router login is set in this terminal. The variables stay
-   set while the terminal stays open, even when you change folders, so if
-   you are still in the terminal from TODO 06 you don't need to do anything.
-   Check them:
-
-     echo "$IOSXE_USERNAME"
-     [ -n "$IOSXE_PASSWORD" ] && echo "password is set" || echo "password NOT set"
-
-   If the username is empty or the password says NOT set (a new terminal, or
-   after a reboot), set them again, the same way as in TODO 06:
-
-     export IOSXE_USERNAME=<your username>
-     read -s IOSXE_PASSWORD; export IOSXE_PASSWORD
-
-   After the second command, type the password and press Enter. Nothing is
-   shown on screen. Then run your
-   script on routers that haven't been touched:
+3. On CWS: Run your drift script on routers that haven't been touched:
 
      bash drift_check.sh
      echo $?
@@ -226,28 +207,28 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
 
 8. On CWS: Save a copy of the file you are about to edit:
 
-     cp data/bgp.nac.yaml /tmp/bgp.before-todo10.yaml
+     cp data/ospf.nac.yaml /tmp/ospf.before-todo09.yaml
 
-   On R12: Now somebody renames a neighbor on the router, and this
+   On R12: Now somebody renames the branch LAN on the router, and this
    time the change is correct:
 
      configure terminal
-      router bgp 65010
-       neighbor 10.255.0.10 description R10-PRIMARY
+      interface Loopback10
+       description BRANCH-LAN-SEA
      end
 
    On CWS: Run bash drift_check.sh. It must say DRIFT. This time the
-   router is right and the data is behind. Edit data/bgp.nac.yaml, and in
-   R12's entry change the description of the neighbor 10.255.0.10 from
-   R10 to R10-PRIMARY. Only that one line. Run the check again. It must
+   router is right and the data is behind. Edit data/ospf.nac.yaml, and in
+   R12's entry change the description of Loopback10 from BRANCH-LAN to
+   BRANCH-LAN-SEA. Only that one line. Run the check again. It must
    say IN SYNC, and the router wasn't touched.
 
 9. On CWS: Put the data back and the router with it:
 
-     cp /tmp/bgp.before-todo10.yaml data/bgp.nac.yaml
+     cp /tmp/ospf.before-todo09.yaml data/ospf.nac.yaml
      terraform apply
 
-   The plan must change one thing, the neighbor description on R12.
+   The plan must change one thing, the Loopback10 description on R12.
    Type yes. Then:
 
      bash drift_check.sh
@@ -309,7 +290,7 @@ $ grep -n 'description' drift-plan.txt
 ...  ~ description = "MANUAL-CHANGE" -> "BRANCH-LAN"
 ```
 
-You may see the line twice. The first shows what changed on the router behind Terraform's back. The second shows what Terraform would do about it. The route you added on R10 appears nowhere, because Terraform has no resource that owns it. A plan finds drift in what it manages and says nothing about the rest. Anything you need to catch outside that list needs a different check, which is what TODO 11 is for.
+You may see the line twice. The first shows what changed on the router behind Terraform's back. The second shows what Terraform would do about it. The route you added on R10 appears nowhere, because Terraform has no resource that owns it. A plan finds drift in what it manages and says nothing about the rest. Anything you need to catch outside that list needs a different check, which is what TODO 10 is for.
 
 After step 6 and after step 9 the check must end with:
 
@@ -350,12 +331,12 @@ On R12:
 
 ```
 configure terminal
- router bgp 65010
-  neighbor 10.255.0.10 description R10
+ interface Loopback10
+  description BRANCH-LAN
 end
 ```
 
-Then restore the data file if you changed it (`cp /tmp/bgp.before-todo10.yaml data/bgp.nac.yaml`) and run `bash drift_check.sh`. The snapshot from step 2 can also put a router back in one command with `configure replace flash:before-todo10.cfg`. It replaces the whole running configuration, so use it only if nothing else changed on that router since the snapshot.
+Then restore the data file if you changed it (`cp /tmp/ospf.before-todo09.yaml data/ospf.nac.yaml`) and run `bash drift_check.sh`. The snapshot from step 2 can also put a router back in one command with `configure replace flash:before-todo09.cfg`. It replaces the whole running configuration, so use it only if nothing else changed on that router since the snapshot.
 
 **Save the reset too.** The reset commands change only the running configuration. Run `write memory` on every router you reset. Without it, a reload brings this TODO's settings back from the startup configuration.
 
@@ -365,17 +346,17 @@ Then restore the data file if you changed it (`cp /tmp/bgp.before-todo10.yaml da
 python grading.py
 ```
 
-Run it in the terminal where you exported `IOSXE_USERNAME` and `IOSXE_PASSWORD`. The grader re-checks TODO 01 to TODO 09 first, each against only the data files that belong to it. Then it runs your `drift_check.sh` four times in a temporary folder, against a pretend `terraform` that exits 0, 2, 1 and 3. It checks the first word of the message, the extra `Plan:` line on drift, the exit code, that `drift-plan.txt` was written, and that the only thing the script ever ran was `plan -detailed-exitcode`. It also reads the script itself and rejects `apply`, `destroy` and login details. Then it checks that every BGP neighbor description in the merged data is the peer's name again, and last, `terraform plan -detailed-exitcode` has to exit `0`. Your real files are never touched, and nothing is sent to a router.
+Run it in the terminal where you exported `IOSXE_USERNAME` and `IOSXE_PASSWORD`. The grader re-checks TODO 01 to TODO 08 first, each against only the data files that belong to it. Then it runs your `drift_check.sh` four times in a temporary folder, against a pretend `terraform` that exits 0, 2, 1 and 3. It checks the first word of the message, the extra `Plan:` line on drift, the exit code, that `drift-plan.txt` was written, and that the only thing the script ever ran was `plan -detailed-exitcode`. It also reads the script itself and rejects `apply`, `destroy` and login details. Then it checks that the Loopback10 description of every router in the merged data is `BRANCH-LAN` again, and last, `terraform plan -detailed-exitcode` has to exit `0`. Your real files are never touched, and nothing is sent to a router.
 
 Before you complete this TODO:
 
 ```
-TODO 10 - Detect and Reconcile Drift
+TODO 09 - Detect and Reconcile Drift
 ────────────────────────────────────────────────────────────────────────────────
 
-[10] Detecting and reconciling drift...
+[9] Detecting and reconciling drift...
 
-✗ TODO 10 Not Complete
+✗ TODO 09 Not Complete
 
 The pipeline cannot continue because drift cannot be detected and reconciled yet.
 
@@ -385,18 +366,18 @@ Proceeding to detailed feedback...
 After you complete it correctly:
 
 ```
-TODO 10 - Detect and Reconcile Drift
+TODO 09 - Detect and Reconcile Drift
 ────────────────────────────────────────────────────────────────────────────────
 
-[10] Detecting and reconciling drift...
+[9] Detecting and reconciling drift...
   drift_check.sh -> plan exit 0 prints IN SYNC and exits 0
   drift_check.sh -> plan exit 2 prints DRIFT and the Plan line, exits 2
   drift_check.sh -> any other plan exit prints ERROR, exits 1
   drift_check.sh -> only ever runs plan (no apply, no destroy)
-  BGP neighbor descriptions -> back to R10, R11, R12
+  Loopback10 descriptions -> back to BRANCH-LAN
   terraform plan -> no changes
 
-✓ TODO 10 Complete
+✓ TODO 09 Complete
 Drift is detected by drift_check.sh, reconciled both ways, and the routers match the data model again.
 ```
 
