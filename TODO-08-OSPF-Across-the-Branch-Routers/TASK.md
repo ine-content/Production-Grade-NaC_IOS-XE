@@ -198,6 +198,38 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
    a device, so use .get() with a default. A process with no router ID
    should be reported too.
 
+   What goes in each blank:
+
+     id = "..."           the rule number as text, in quotes: "104"
+     description = "..."  one sentence that says what the rule demands,
+                          for example: An OSPF router ID must be the
+                          device's Loopback0 address
+     address = ...        the IPv4 address of Loopback0. In words: start
+                          with address = None, go through loopbacks, and
+                          when a loopback's id is 0, set address to its
+                          ipv4 -> address. Use .get() on both steps
+     router_id = ...      the router ID of this process: process.get("router_id").
+                          A process with no router ID gives None
+     if ...:              the test for a problem: router_id is not equal
+                          to address. A missing router ID is None, so it
+                          is not equal either and gets reported
+     results.append(...)  one message about the problem, written as text.
+                          It should say which device and OSPF process, what
+                          router ID it has, and what it should be. The
+                          finished message looks like:
+
+                              R11 OSPF 1 router_id 1.1.1.1 is not the Loopback0 address 10.255.0.11
+
+                          Build it from the device name (device["name"]),
+                          the process number (process.get("id"), wrapped in
+                          str(...) because it is a number), router_id
+                          (wrapped in str(...) too, because it can be None)
+                          and address (also in str(...)), with the plain
+                          text between them, glued together with +
+
+   The grader does not read your message, only the rule id and that the rule
+   fires. A clear message is still what an engineer reads when the rule fails.
+
 4. On R10, R11 and R12: Take a snapshot on each router, then check it:
 
      copy running-config flash:before-todo08.cfg
