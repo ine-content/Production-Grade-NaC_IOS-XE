@@ -12,14 +12,12 @@ class Rule(RuleBase):
         for device in data.get("iosxe", {}).get("devices", []):
             config = device.get("configuration", {})
             lists = config.get("access_lists", {})
-            defined = set()
-            for acl in lists.get("standard", []):
-                defined.add(acl["name"])
+            defined = {acl["name"] for kind in ("standard", "extended") for acl in lists.get(kind, [])}
             for loopback in config.get("interfaces", {}).get("loopbacks", []):
                 name = loopback.get("ipv4", {}).get("access_group_in")
                 if name and name not in defined:
                     results.append(
-                        device["name"] + " Loopback" + str(loopback.get("id")) + " uses ACL '"
-                        + name + "', which the device does not define"
+                        f"{device['name']} Loopback{loopback.get('id')} uses ACL '{name}', "
+                        f"which the device does not define"
                     )
         return results
