@@ -12,13 +12,16 @@ class Rule(RuleBase):
         for device in data.get("iosxe", {}).get("devices", []):
             config = device.get("configuration", {})
             loopbacks = config.get("interfaces", {}).get("loopbacks", [])
-            loopback0 = next((lb for lb in loopbacks if lb.get("id") == 0), {})
-            address = loopback0.get("ipv4", {}).get("address")
+            address = None
+            for loopback in loopbacks:
+                if loopback.get("id") == 0:
+                    address = loopback.get("ipv4", {}).get("address")
             for process in config.get("routing", {}).get("ospf_processes", []):
                 router_id = process.get("router_id")
                 if router_id != address:
                     results.append(
-                        f"{device['name']} OSPF {process.get('id')} router_id {router_id} "
-                        f"is not the Loopback0 address {address}"
+                        device["name"] + " OSPF " + str(process.get("id"))
+                        + " router_id " + str(router_id)
+                        + " is not the Loopback0 address " + str(address)
                     )
         return results
