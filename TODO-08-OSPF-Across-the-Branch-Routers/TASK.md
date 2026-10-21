@@ -187,9 +187,14 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
                  config = device.get("configuration", {})
                  loopbacks = config.get("interfaces", {}).get("loopbacks", [])
                  # the address of the loopback whose id is 0
-                 address = ...
+                 address = None
+                 for loopback in loopbacks:
+                     # LOOPBACK0 CHECK
+                     if ...:
+                         address = ...
                  for process in config.get("routing", {}).get("ospf_processes", []):
                      router_id = ...
+                     # ROUTER ID CHECK
                      if ...:
                          results.append(...)
              return results
@@ -204,15 +209,19 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
      description = "..."  one sentence that says what the rule demands,
                           for example: An OSPF router ID must be the
                           device's Loopback0 address
-     address = ...        the IPv4 address of Loopback0. In words: start
-                          with address = None, go through loopbacks, and
-                          when a loopback's id is 0, set address to its
-                          ipv4 -> address. Use .get() on both steps
+     if ...:              (under # LOOPBACK0 CHECK) the test that this
+                          loopback is Loopback0: its id is 0. Use
+                          loopback.get("id") == 0
+     address = ...        (inside that if) the IPv4 address of this
+                          loopback, at ipv4 -> address. Use .get() on both
+                          steps. address starts as None, so a device
+                          without a Loopback0 keeps None
      router_id = ...      the router ID of this process: process.get("router_id").
                           A process with no router ID gives None
-     if ...:              the test for a problem: router_id is not equal
-                          to address. A missing router ID is None, so it
-                          is not equal either and gets reported
+     if ...:              (under # ROUTER ID CHECK) the test for a
+                          problem: router_id is not equal to address.
+                          A missing router ID is None, so it is not
+                          equal either and gets reported
      results.append(...)  one message about the problem, written as text.
                           It should say which device and OSPF process, what
                           router ID it has, and what it should be. The
