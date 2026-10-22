@@ -61,17 +61,22 @@ Things to notice:
 
 ## Technical Requirements
 
-`drift_check.sh`, in this folder, does this:
+Create `drift_check.sh` in this folder. The script runs `terraform plan -detailed-exitcode`, looks at the exit code the plan gives back, and reacts. There are three cases:
 
-| `terraform plan -detailed-exitcode` exits | Script prints a line starting | Script also | Script exits |
-|-------------------------------------------|-------------------------------|-------------|--------------|
-| 0 | `IN SYNC` | nothing more | 0 |
-| 2 | `DRIFT` | the plan's `Plan:` summary line | 2 |
-| anything else | `ERROR` | nothing more | 1 |
+| What the plan found | The plan's exit code | The script prints a line that starts with | The script exits with |
+|---------------------|----------------------|-------------------------------------------|-----------------------|
+| Nothing to change | 0 | `IN SYNC` | 0 |
+| Differences | 2 | `DRIFT`, then the plan's `Plan:` summary line on its own line | 2 |
+| Anything else (an error) | any other code | `ERROR` | 1 |
 
-The script saves the full plan output to `drift-plan.txt` in this folder every time. What you write after the first word is up to you. The script may only plan. It must never run `apply` or `destroy`, and it can't contain login details, because those come from the environment, as in TODO 06.
+The script also has to follow these rules:
 
-After you finish, the description of Loopback10 on every router in `data/ospf.nac.yaml` must be back to `BRANCH-LAN`, and `terraform plan` must show no changes.
+- Save the full plan output to `drift-plan.txt` in this folder every time it runs.
+- Only the first word of each message is checked. What you write after it is up to you.
+- Only plan. The script must never run `apply` or `destroy`.
+- Keep login details out of the script. They come from the environment, as in TODO 06.
+
+When you finish the whole TODO, two things must be true. The description of Loopback10 on every router in `data/ospf.nac.yaml` is back to `BRANCH-LAN`, and `terraform plan` shows no changes.
 
 ## Notation Used Below
 
@@ -124,7 +129,7 @@ When it finishes, run the check commands again and make sure the output looks ri
 Each step starts by saying where to run it. "On CWS" means a normal terminal on the lab machine (CWS), in this folder. "On R10" (or R11, R12) means that router's own command line (SSH or console). These labels are only directions. You don't type them anywhere.
 
 ```
-1. On CWS: Create drift_check.sh. Fill in each ...:
+1. On CWS: Create drift_check.sh. Replace each ... with your own value:
 
      #!/usr/bin/env bash
      # Compare the routers with the data model. Changes nothing.
@@ -132,46 +137,53 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
      terraform plan -detailed-exitcode -no-color > drift-plan.txt 2>&1
      code=...
 
+     # CASE 1: the plan found nothing to change
      if [ "$code" -eq ... ]; then
          echo "..."
          exit ...
+
+     # CASE 2: the plan found differences
      elif [ "$code" -eq ... ]; then
          echo "..."
          grep '^Plan:' drift-plan.txt
          exit ...
+
+     # CASE 3: anything else, which means an error
      else
          echo "..."
          exit ...
      fi
 
-   Each message must start with the word from the Technical Requirements
-   table. The grep line prints the plan's summary, for example
-   "Plan: 0 to add, 1 to change, 0 to destroy."
+   The three cases match the three rows of the table in Technical
+   Requirements. The grep line is already filled in. It prints the plan's
+   summary, for example "Plan: 0 to add, 1 to change, 0 to destroy."
 
-   What goes in each blank, from top to bottom:
+   What goes in each blank:
 
-     code=...             the exit code of the plan command on the line
-                          above. In the shell that is $?, and it must be
-                          the very next line after the plan, because the
-                          next command overwrites it. Write: code=$?
-     -eq ... (first if)   the plan exit code that means no changes: 0
-     echo "..."           (first if) a line that starts with IN SYNC, for
-                          example: IN SYNC: the routers match the data model
-     exit ...             (first if) the script's exit code for no changes: 0
-     -eq ... (elif)       the plan exit code that means changes are
-                          present: 2
-     echo "..."           (elif) a line that starts with DRIFT, for
-                          example: DRIFT: the routers differ from the data model
-     exit ...             (elif) the script's exit code for drift: 2
-     echo "..."           (else) a line that starts with ERROR, for
-                          example: ERROR: terraform plan failed, see drift-plan.txt
-     exit ...             (else) the script's exit code for any other
-                          result: 1
+     code=...             The plan's exit code. Write: code=$?
+                          It must stay on the line right after the plan
+                          command, because the next command replaces $?.
 
-   The three branches match the three rows of the table above. Only the
-   first word of each message is checked. The rest is up to you. The
-   skeleton never runs apply or destroy, and it has no login details in
-   it. Leave it that way.
+     CASE 1
+       -eq ...            0, the plan's exit code for "nothing to change"
+       echo "..."         A line that starts with IN SYNC, for example:
+                          IN SYNC: the routers match the data model
+       exit ...           0
+
+     CASE 2
+       -eq ...            2, the plan's exit code for "differences"
+       echo "..."         A line that starts with DRIFT, for example:
+                          DRIFT: the routers differ from the data model
+       exit ...           2
+
+     CASE 3
+       echo "..."         A line that starts with ERROR, for example:
+                          ERROR: terraform plan failed, see drift-plan.txt
+       exit ...           1
+
+   Only the first word of each message is checked. The rest is up to you.
+   Don't add apply or destroy to the script, and don't put login details
+   in it.
 
 2. On R10, R11, and R12: Take a snapshot on each router, then check it:
 
