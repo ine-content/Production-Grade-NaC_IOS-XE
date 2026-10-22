@@ -16,11 +16,18 @@ This folder already has TODO 09 solved, including `drift_check.sh`. Terraform ca
 
 ## Scenario
 
-`nac-test` takes the same data model you've been building and a folder of test templates. It renders the templates with the data, so one template becomes many tests, and then runs them with Robot Framework. Add a router or a loopback to the data, and the tests for it appear without anyone writing them.
+In TODO 09, Terraform told you whether a router's configuration matched your data. That check reads configuration. It doesn't ask the router what it's doing right now. In this TODO, you test the live routers directly.
 
-The tests talk to each router over RESTCONF, the HTTPS interface of IOS-XE. A RESTCONF request is a normal web request to an address like `https://10.10.10.10/restconf/data/...`, and the router answers with JSON. Terraform used NETCONF in the earlier TODOs. RESTCONF is a different way into the same router, and it's easier to call from a test.
+Here's how it works. You write one test template, which is a test file with blanks that get filled in from your data model. A tool called `nac-test` fills in the blanks (this is called rendering) and hands the result to Robot Framework, which runs the tests. The template loops over your data, so one template becomes many tests. If you add a fourth router to your YAML, nac-test makes a fourth hostname test automatically. You don't edit the template.
 
-You write one template, `tests/verify_routers.robot`, with two kinds of test. For each router, check the hostname. For each loopback in the data, check that the router has it with the right address. That makes 9 tests for the three routers: three hostname tests and six loopback tests.
+Each test asks a router a question over RESTCONF. That's the HTTPS interface of IOS-XE. A RESTCONF request is a normal web request to an address like `https://10.10.10.10/restconf/data/...`, and the router answers with JSON. Terraform used NETCONF in the earlier TODOs. RESTCONF is a different way into the same router, and it's easier to call from a test.
+
+Your template makes two kinds of test:
+
+- **Hostname:** for each router, ask for its hostname and check that it matches the data.
+- **Loopback:** for each loopback in the data, ask the router for that loopback and check that it has the right address.
+
+The data has three routers, and each has Loopback0 and Loopback10. So that makes 9 tests: three hostname tests and six loopback tests.
 
 One thing needs doing on the routers first. RESTCONF is off until you turn it on, so step 3 enables it. Nothing else on the routers changes, and Terraform doesn't manage this setting.
 
