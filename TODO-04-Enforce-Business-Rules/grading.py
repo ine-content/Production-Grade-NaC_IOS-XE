@@ -1043,7 +1043,10 @@ def check_todo_2():
         permissive = tmp_path / "permissive.schema.yaml"
         permissive.write_text("iosxe: any(required=False)\n", encoding="utf-8")
         merged = tmp_path / "merged.yaml"
-        code, _, _ = run_nac_validate(DATA_DIR, schema=permissive, extra=["-o", str(merged)])
+        # Only the files that belong to TODO 02 or earlier, so the merge order of later
+        # files (routing, ospf) can't change which loopback comes first.
+        data_dir = _data_dir_upto(tmp_path, 2)
+        code, _, _ = run_nac_validate(data_dir, schema=permissive, extra=["-o", str(merged)])
         if code != 0 or not merged.exists():
             return False
         merged_model = _load_yaml(merged)
@@ -1586,23 +1589,25 @@ TESTS_DIR = ROOT / "tests"
 TEST_FILE = TESTS_DIR / "verify_routers.robot"
 
 PROBLEMS[10] = (
-    "One of these is not right yet. tests/verify_routers.robot must be a nac-test template that\n"
-    "turns the data model into Robot tests: per router a hostname test, and per loopback a test.\n"
-    "The names, hosts and values must come from the data, not be typed in. Login details come from the environment. And\n"
-    "the tests must pass against the live routers."
+    "One of these is not right yet. The provided tests/verify_routers.robot must still render into 9 tests\n"
+    "that follow the data model, with the login read from the environment and nothing typed in. And nac-test\n"
+    "must pass every test against the live routers. If a test fails, the cause is usually on the router side\n"
+    "(RESTCONF is off, the login isn't set in this terminal, or a router differs from the data), or the\n"
+    "template was edited."
 )
 EXPECTED[10] = (
-    "9 tests: '<router> hostname' (3), '<router> Loopback<id>' (6).\n"
+    "The template is provided. It makes 9 tests: '<router> hostname' (3), '<router> Loopback<id>' (6).\n"
     "hostname -> GET Cisco-IOS-XE-native:native/hostname, equals the hostname in the data.\n"
     "Loopback -> GET .../interface/Loopback=<id>, contains the loopback address from the data.\n"
     "Add a loopback or change a management address in the data and the tests follow.\n"
     "Login from %{IOSXE_USERNAME} and %{IOSXE_PASSWORD}. nac-test exits 0 against the routers."
 )
 HINTS[10] = (
-    "Two nested Jinja loops: devices, then device.configuration.interfaces.loopbacks. Inside them\n"
-    "{{ device.name }}, {{ device.host }}, {{ loopback.id }} and {{ loopback.ipv4.address }}\n"
-    "fill the blanks. Robot needs at least two spaces between a keyword and its arguments. If a live\n"
-    "test fails, run curl against that router first (step 4) to see what it really returns."
+    "Run curl against the failing router first (step 4) to see what it really returns. A 401 means the\n"
+    "login is wrong or not set in this terminal. A connection error means RESTCONF is off: repeat step 3 and\n"
+    "save with write memory. If one loopback test fails, the router's loopback differs from the data: look at\n"
+    "it with show running-config interface Loopback<id>. If you edited the template, put it back the way it was\n"
+    "(the Solution panel shows the original)."
 )
 SOLUTIONS[10] = """# tests/verify_routers.robot
 *** Settings ***
