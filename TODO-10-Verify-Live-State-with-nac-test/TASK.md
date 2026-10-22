@@ -6,14 +6,15 @@
 ✓ Why a clean plan doesn't prove the network works
 ✓ How nac-test and Jinja turn the data model into tests
 ✓ Reading live router state over RESTCONF
+✓ Checking what a plan can't see: whether OSPF neighbors are really up
 ✓ Reading a finished test template, line by line
 ✓ Tests that follow the data: change the data and the tests change
-✓ Catching a real mistake on a router with a failing test
+✓ Catching a real problem that terraform plan reports as fine
 ```
 
 ## Recap
 
-This folder already has TODO 09 solved, including `drift_check.sh`. Terraform can tell you that a router's configuration matches the data model. But a matching config doesn't prove the network works. An interface can be configured exactly as written and still be wrong, for example after a manual change that Terraform hasn't picked up yet. In this TODO, you run tests that ask the routers what they're doing right now. The test template is already written and sits in `tests/`. You read it, run it, and watch it catch a real mistake.
+This folder already has TODO 09 solved, including `drift_check.sh`. Terraform can tell you that a router's configuration matches the data model. But a matching config doesn't prove the network works. An OSPF neighbor can drop while the configuration still matches your data exactly. A plan can't see that, because it only compares configuration. In this TODO, you run tests that ask the routers what they're doing right now, including whether their OSPF neighbors are up. The test template is already written and sits in `tests/`. You read it, run it, and watch it catch a problem that `terraform plan` calls fine.
 
 ## Scenario
 
@@ -23,12 +24,15 @@ Here's how it works. The folder has a test template, which is a test file with b
 
 Each test asks a router a question over RESTCONF. That's the HTTPS interface of IOS-XE. A RESTCONF request is a normal web request to an address like `https://10.10.10.10/restconf/data/...`, and the router answers with JSON. Terraform used NETCONF in the earlier TODOs. RESTCONF is a different way into the same router, and it's easier to call from a test.
 
-The template makes two kinds of test:
+The template makes three kinds of test:
 
 - **Hostname:** for each router, ask for its hostname and check that it matches the data.
 - **Loopback:** for each loopback in the data, ask the router for that loopback and check that it has the right address.
+- **OSPF neighbor:** for each router, and for each other router that runs OSPF, ask the router for its live OSPF neighbor table and check that the other router is listed in state FULL. FULL means the two routers have finished exchanging their routing information.
 
-The data has three routers, and each has Loopback0 and Loopback10. So that makes 9 tests: three hostname tests and six loopback tests.
+The data has three routers. Each has Loopback0 and Loopback10, and each has two OSPF neighbors. So that makes 15 tests: three hostname tests, six loopback tests, and six OSPF neighbor tests.
+
+The third kind is the reason this tool exists. A plan compares configuration with your data. Whether an OSPF neighbor is up isn't configuration. It's what the routers are doing right now. If someone changes a setting that Terraform doesn't manage, the plan says nothing, and the network can still break. You'll see exactly that in step 10. You'll break OSPF on R12, `terraform plan` will report no changes, and the tests will fail.
 
 One thing needs doing on the routers first. RESTCONF is off until you turn it on, so step 3 enables it. Nothing else on the routers changes, and Terraform doesn't manage this setting.
 
@@ -80,14 +84,15 @@ The file `tests/verify_routers.robot` is already in this folder. You don't edit 
 |-----------|-------|---------------------------------------------|-----------|
 | `<router> hostname` | each device | `Cisco-IOS-XE-native:native/hostname` | the answer equals `configuration.system.hostname` |
 | `<router> Loopback<id>` | each loopback of each device | `Cisco-IOS-XE-native:native/interface/Loopback=<id>` | the answer contains the loopback's `ipv4.address` |
+| `<router> OSPF neighbor <router-id>` | each device that runs OSPF, once for every other device that runs OSPF | `Cisco-IOS-XE-ospf-oper:ospf-oper-data/ospf-state` | the neighbor table has an entry whose `neighbor-id` is the other router's OSPF `router_id`, and its state is FULL |
 
 Every request goes over HTTPS to the device's `host` from the data model. The router's certificate is self-signed, so the tests don't verify it. The login comes from the terminal's environment (`%{IOSXE_USERNAME}` and `%{IOSXE_PASSWORD}` in Robot), and no credentials appear in the file. The tests never change anything on a router.
 
-What you do in this TODO: turn on RESTCONF, read the template, render it, run it, change the data to see the tests follow, and break a loopback on a router to see a test fail.
+What you do in this TODO: turn on RESTCONF, read the template, render it, run it, change the data to see the tests follow, and break OSPF on a router to see tests fail while `terraform plan` stays quiet.
 
 ## The Provided Template
 
-Open `tests/verify_routers.robot` and follow along. It has three parts.
+Open `tests/verify_routers.robot` and follow along. It has four parts.
 
 **Part 1: Settings.** These two lines are a label and a library.
 
@@ -122,7 +127,27 @@ Router Get
 - `Evaluate next(iter(...))` takes the value under the answer's one top key. For example, `{"Cisco-IOS-XE-native:hostname":"R10"}` becomes `R10`.
 - `RETURN` hands that value back to the test.
 
-**Part 3: the test cases.** This is where the data model comes in. Lines that start with `{%` and text in `{{ }}` are Jinja. They're filled in during rendering, before Robot runs.
+**Part 3: the `Neighbor Should Be Full` keyword.** This keyword looks through a router's OSPF data for one neighbor and fails unless that neighbor is in state FULL.
+
+```
+Neighbor Should Be Full
+    [Documentation]    Fail unless the OSPF data shows this neighbor router ID in state FULL.
+    [Arguments]    ${state}    ${neighbor_id}
+    ${objects}=    Evaluate    (lambda walk, data: walk(walk, data))(lambda walk, x: ([x] if isinstance(x, dict) else []) + [y for v in (list(x.values()) if isinstance(x, dict) else x if isinstance(x, list) else []) for y in walk(walk, v)], $state)
+    ${states}=    Evaluate    [str(o.get('state')) for o in $objects if o.get('neighbor-id') == '${neighbor_id}']
+    Should Not Be Empty    ${states}    No OSPF neighbor ${neighbor_id} in the neighbor table
+    ${full}=    Evaluate    any('full' in s.lower() for s in $states)
+    Should Be True    ${full}    Neighbor ${neighbor_id} is not FULL. States seen: ${states}
+```
+
+- `[Arguments]` names the two inputs: `${state}` is the router's OSPF data, and `${neighbor_id}` is the router ID of the neighbor we expect to see.
+- The first `Evaluate` is one line of Python that walks through the whole answer and collects every entry in it, however deeply it's nested. The OSPF answer is nested several levels (instance, area, interface, neighbor), so this way the test doesn't depend on the exact nesting. You don't have to read the lambda. Think of it as a "find every entry" loop.
+- The second `Evaluate` keeps only the entries whose `neighbor-id` is the router ID we expect, and collects their `state` values.
+- `Should Not Be Empty` fails with "No OSPF neighbor ... in the neighbor table" if the router doesn't list that neighbor at all.
+- The third `Evaluate` is true if any of those states contains the word "full". The router reports FULL as `ospf-nbr-full`, so this matches it.
+- `Should Be True` fails with "Neighbor ... is not FULL" and shows the states it saw. A neighbor stuck in INIT or EXSTART fails here.
+
+**Part 4: the test cases.** This is where the data model comes in. Lines that start with `{%` and text in `{{ }}` are Jinja. They're filled in during rendering, before Robot runs.
 
 ```
 *** Test Cases ***
@@ -140,6 +165,19 @@ Router Get
     Should Contain    ${text}    {{ loopback.ipv4.address }}
 
 {% endfor %}
+{% set my_processes = (device.configuration.routing | default({})).ospf_processes | default([]) %}
+{% if my_processes | length > 0 %}
+{% for other in iosxe.devices | default([]) %}
+{% set other_processes = (other.configuration.routing | default({})).ospf_processes | default([]) %}
+{% if other.name != device.name and other_processes | length > 0 %}
+{{ device.name }} OSPF neighbor {{ other_processes[0].router_id }}
+    [Tags]    iosxe    ospf    operational
+    ${state}=    Router Get    {{ device.host }}    Cisco-IOS-XE-ospf-oper:ospf-oper-data/ospf-state
+    Neighbor Should Be Full    ${state}    {{ other_processes[0].router_id }}
+
+{% endif %}
+{% endfor %}
+{% endif %}
 {% endfor %}
 ```
 
@@ -153,7 +191,14 @@ Router Get
 - The loopback request asks for `interface/Loopback=<id>`. The router answers with a list of entries.
 - `Convert To String ${entries}[0]` turns the first entry into text.
 - `Should Contain` passes only if that text contains the address from the data.
-- The two `{% endfor %}` lines close the two loops.
+- The first `{% endfor %}` closes the loopback loop. The OSPF tests come next, still inside the router loop.
+- `{% set my_processes = ... %}` saves a value in a Jinja variable. Here it's the list of OSPF processes on this router, or an empty list if it has none. The two `default` filters keep the template from failing on a router that has no `routing` section.
+- `{% if my_processes | length > 0 %}` skips routers that don't run OSPF.
+- The inner `{% for other ... %}` loops over every router again, to find this router's neighbors. `other.name != device.name` skips the router itself, and the second `{% set %}` and `{% if %}` skip routers without OSPF.
+- `{{ device.name }} OSPF neighbor {{ other_processes[0].router_id }}` is the test name, for example `R10 OSPF neighbor 10.255.0.11`. The `[0]` means the first OSPF process of the other router, and `router_id` is its OSPF router ID.
+- The OSPF request asks for `Cisco-IOS-XE-ospf-oper:ospf-oper-data/ospf-state`. The "oper" in the name means operational data: what the router is doing right now, not what's configured.
+- `Neighbor Should Be Full ${state} ...` hands that answer and the other router's ID to the keyword from Part 3.
+- The last `{% endfor %}` lines close the remaining loops.
 
 ## Working Folder
 
@@ -263,20 +308,20 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
      nac-test -d data -t tests -o test-results --render-only
      grep -E '^R1[0-2] ' test-results/robot_results/verify_routers.robot
 
-   You should see the 9 test names, listed in What You Should See.
+   You should see the 15 test names, listed in What You Should See.
 
 7. On CWS: Check the template without touching a router. A Robot dry
    run walks through every keyword and sends no request:
 
      nac-test -d data -t tests -o test-results --dry-run
 
-   It must end with: All tests passed: 9 out of 9 tests
+   It must end with: All tests passed: 15 out of 15 tests
 
 8. On CWS: Run the tests against the routers:
 
      nac-test -d data -t tests -o test-results
 
-   Wait for the summary. All 9 must pass.
+   Wait for the summary. All 15 must pass.
 
 9. On CWS: Prove the tests really come from the data. Give R12 a
    different management address for a moment, render, and count where
@@ -288,32 +333,56 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
      mv data/devices.nac.yaml.bak data/devices.nac.yaml
      nac-test -d data -t tests -o test-results --render-only
 
-   The count must be 3, one line for each of R12's three tests. You
-   never touched the template. The last command renders again with
-   your real data.
+   The count must be 5, one line for each of R12's own five tests: its
+   hostname, its two loopbacks, and its two OSPF neighbor tests. The
+   other routers' tests about R12 don't change, because they ask their
+   own router. You never touched the template. The last command renders
+   again with your real data.
 
-10. On R12: Break something on the router. Give Loopback10 another
-    address:
+10. On R12: Break something that Terraform doesn't manage. Change the
+    OSPF hello timer on R12's management interface. GigabitEthernet1
+    isn't in the data model, so Terraform never looks at it:
 
      configure terminal
-      interface Loopback10
-       ip address 172.16.12.99 255.255.255.255
+      interface GigabitEthernet1
+       ip ospf hello-interval 1
      end
 
-    On CWS: Run the tests again:
+    The OSPF timers on R12 no longer match the other routers, so R12 and
+    its neighbors drop each other. Wait about 45 seconds. R10 and R11
+    give up on R12 after their 40-second dead timer.
+
+    On CWS: Ask Terraform what it thinks:
+
+     terraform plan -detailed-exitcode
+     echo $?
+
+    It must exit 0, which means no changes. Terraform has no idea
+    anything is wrong, because the hello timer isn't part of your data.
+
+    Now run the tests:
 
      nac-test -d data -t tests -o test-results
      echo $?
 
-    Exactly one test must fail, R12 Loopback10. The other 8 pass, and
-    the exit code is 1. Then put the address back on R12:
+    Exactly 4 tests must fail. They are R12 OSPF neighbor 10.255.0.10,
+    R12 OSPF neighbor 10.255.0.11, R10 OSPF neighbor 10.255.0.12, and
+    R11 OSPF neighbor 10.255.0.12. The other 11 pass, and the exit code
+    is 4. The plan said everything was fine, and the tests caught the
+    problem.
+
+    Now fix it. On R12:
 
      configure terminal
-      interface Loopback10
-       ip address 172.16.12.1 255.255.255.255
+      interface GigabitEthernet1
+       no ip ospf hello-interval
      end
 
-    Run the tests again. All 9 must pass.
+    On R12: Wait about 40 seconds, until both neighbors are FULL again:
+
+     show ip ospf neighbor
+
+    On CWS: Run the tests again. All 15 must pass.
 
 11. On CWS: Run: python grading.py
 ```
@@ -328,18 +397,24 @@ Step 4 should print one line per router:
 {"Cisco-IOS-XE-native:hostname":"R12"}
 ```
 
-After step 6, the names of the 9 tests are:
+After step 6, the names of the 15 tests are:
 
 ```
 R10 hostname
 R10 Loopback0
 R10 Loopback10
+R10 OSPF neighbor 10.255.0.11
+R10 OSPF neighbor 10.255.0.12
 R11 hostname
 R11 Loopback0
 R11 Loopback10
+R11 OSPF neighbor 10.255.0.10
+R11 OSPF neighbor 10.255.0.12
 R12 hostname
 R12 Loopback0
 R12 Loopback10
+R12 OSPF neighbor 10.255.0.10
+R12 OSPF neighbor 10.255.0.11
 ```
 
 If step 7 reports a keyword or a syntax problem, you changed the template. Put it back the way it was.
@@ -347,10 +422,16 @@ If step 7 reports a keyword or a syntax problem, you changed the template. Put i
 A live run that passes (step 8) ends like this. The times differ:
 
 ```
-9 tests, 9 passed, 0 failed, 0 skipped.
+15 tests, 15 passed, 0 failed, 0 skipped.
 ```
 
-In step 10, the live run with R12's address changed fails one test. The message under `R12 Loopback10` says the answer from the router doesn't contain `172.16.12.1`. The exit code is the number of failed tests, so `1`. Think about what a plan would have told you here. It would also notice this change, but only the test says in plain words which check failed.
+In step 10, after you add the hello timer on R12, the plan exits `0` and the live run fails 4 tests:
+
+```
+15 tests, 11 passed, 4 failed, 0 skipped.
+```
+
+The failure messages say either that the neighbor is missing from the router's neighbor table, or that it isn't FULL. For example: `No OSPF neighbor 10.255.0.10 in the neighbor table`. The exit code is the number of failed tests, so `4`. Terraform's plan said nothing about this problem. Only the tests did.
 
 ## Put a router back
 
@@ -366,7 +447,16 @@ end
 
 Leave out any line that was already in the configuration before step 3, because something else may depend on it. Leave OSPF and the rest alone. The snapshot from step 2 can also put a router back in one command with `configure replace flash:before-todo10.cfg`. It replaces the whole running configuration, so use it only if nothing else changed on that router since the snapshot.
 
-If step 10 didn't finish and R12 Loopback10 still has the address `172.16.12.99`, put it back with the commands at the end of that step.
+If step 10 didn't finish and R12 still has the hello timer, remove it. On R12:
+
+```
+configure terminal
+ interface GigabitEthernet1
+  no ip ospf hello-interval
+end
+```
+
+Then wait about 40 seconds and check that `show ip ospf neighbor` shows both neighbors as FULL.
 
 Terraform isn't involved, so `terraform plan` isn't affected either way.
 
@@ -378,7 +468,7 @@ Terraform isn't involved, so `terraform plan` isn't affected either way.
 python grading.py
 ```
 
-Run it in the terminal where you exported `IOSXE_USERNAME` and `IOSXE_PASSWORD`. First the grader re-checks TODO 01 to TODO 09, each against only its own data files. Then it checks that the template still reads the login from the environment and has none typed in. It renders the template with nac-test and compares the 9 tests, names and contents, with what the data says. In a temporary copy it changes the data twice, adding a loopback and moving R12 to a new address, and the rendered tests must change with it. A Robot dry run must pass. Last, it runs the real tests against R10, R11, and R12, and every one must pass. Your real files are never touched, and nothing is changed on a router.
+Run it in the terminal where you exported `IOSXE_USERNAME` and `IOSXE_PASSWORD`. First the grader re-checks TODO 01 to TODO 09, each against only its own data files. Then it checks that the template still reads the login from the environment and has none typed in. It renders the template with nac-test and compares the 15 tests, names and contents, with what the data says. In a temporary copy it changes the data twice, adding a loopback and moving R12 to a new address, and the rendered tests must change with it. A Robot dry run must pass. Last, it runs the real tests against R10, R11, and R12, and every one must pass. Your real files are never touched, and nothing is changed on a router.
 
 Before you complete this TODO:
 
@@ -403,7 +493,7 @@ TODO 10 - Verify Live State with nac-test
 
 [10] Verifying live state with nac-test...
   tests/verify_routers.robot -> rendered by nac-test from the data model
-  9 tests: 3 hostname and 6 loopback, all built from the data
+  15 tests: 3 hostname, 6 loopback, 6 OSPF neighbor, all built from the data
   login -> read from IOSXE_USERNAME and IOSXE_PASSWORD, none in the file
   injected: a loopback added to R11 -> a new test appeared
   injected: R12 given another management address -> its tests followed

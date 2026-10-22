@@ -1589,16 +1589,18 @@ TESTS_DIR = ROOT / "tests"
 TEST_FILE = TESTS_DIR / "verify_routers.robot"
 
 PROBLEMS[10] = (
-    "One of these is not right yet. The provided tests/verify_routers.robot must still render into 9 tests\n"
+    "One of these is not right yet. The provided tests/verify_routers.robot must still render into 15 tests\n"
     "that follow the data model, with the login read from the environment and nothing typed in. And nac-test\n"
     "must pass every test against the live routers. If a test fails, the cause is usually on the router side\n"
-    "(RESTCONF is off, the login isn't set in this terminal, or a router differs from the data), or the\n"
-    "template was edited."
+    "(RESTCONF is off, the login isn't set in this terminal, a router differs from the data, or an OSPF\n"
+    "neighbor is not FULL), or the template was edited."
 )
 EXPECTED[10] = (
-    "The template is provided. It makes 9 tests: '<router> hostname' (3), '<router> Loopback<id>' (6).\n"
+    "The template is provided. It makes 15 tests: '<router> hostname' (3), '<router> Loopback<id>' (6),\n"
+    "'<router> OSPF neighbor <router-id>' (6).\n"
     "hostname -> GET Cisco-IOS-XE-native:native/hostname, equals the hostname in the data.\n"
     "Loopback -> GET .../interface/Loopback=<id>, contains the loopback address from the data.\n"
+    "OSPF neighbor -> GET Cisco-IOS-XE-ospf-oper:ospf-oper-data/ospf-state, shows that neighbor in state FULL.\n"
     "Add a loopback or change a management address in the data and the tests follow.\n"
     "Login from %{IOSXE_USERNAME} and %{IOSXE_PASSWORD}. nac-test exits 0 against the routers."
 )
@@ -1606,8 +1608,10 @@ HINTS[10] = (
     "Run curl against the failing router first (step 4) to see what it really returns. A 401 means the\n"
     "login is wrong or not set in this terminal. A connection error means RESTCONF is off: repeat step 3 and\n"
     "save with write memory. If one loopback test fails, the router's loopback differs from the data: look at\n"
-    "it with show running-config interface Loopback<id>. If you edited the template, put it back the way it was\n"
-    "(the Solution panel shows the original)."
+    "it with show running-config interface Loopback<id>. If an OSPF neighbor test fails, run show ip ospf\n"
+    "neighbor on that router: a neighbor that isn't FULL is usually a mismatched timer or a shut interface\n"
+    "(check show ip ospf interface GigabitEthernet1 and look for a hello-interval you added by hand). If you\n"
+    "edited the template, put it back the way it was (the Solution panel shows the original)."
 )
 SOLUTIONS[10] = """# tests/verify_routers.robot
 *** Settings ***
@@ -1625,6 +1629,15 @@ Router Get
     ${data}=    Evaluate    next(iter($response.json().values()))
     RETURN    ${data}
 
+Neighbor Should Be Full
+    [Documentation]    Fail unless the OSPF data shows this neighbor router ID in state FULL.
+    [Arguments]    ${state}    ${neighbor_id}
+    ${objects}=    Evaluate    (lambda walk, data: walk(walk, data))(lambda walk, x: ([x] if isinstance(x, dict) else []) + [y for v in (list(x.values()) if isinstance(x, dict) else x if isinstance(x, list) else []) for y in walk(walk, v)], $state)
+    ${states}=    Evaluate    [str(o.get('state')) for o in $objects if o.get('neighbor-id') == '${neighbor_id}']
+    Should Not Be Empty    ${states}    No OSPF neighbor ${neighbor_id} in the neighbor table
+    ${full}=    Evaluate    any('full' in s.lower() for s in $states)
+    Should Be True    ${full}    Neighbor ${neighbor_id} is not FULL. States seen: ${states}
+
 *** Test Cases ***
 {% for device in iosxe.devices | default([]) %}
 {{ device.name }} hostname
@@ -1640,6 +1653,19 @@ Router Get
     Should Contain    ${text}    {{ loopback.ipv4.address }}
 
 {% endfor %}
+{% set my_processes = (device.configuration.routing | default({})).ospf_processes | default([]) %}
+{% if my_processes | length > 0 %}
+{% for other in iosxe.devices | default([]) %}
+{% set other_processes = (other.configuration.routing | default({})).ospf_processes | default([]) %}
+{% if other.name != device.name and other_processes | length > 0 %}
+{{ device.name }} OSPF neighbor {{ other_processes[0].router_id }}
+    [Tags]    iosxe    ospf    operational
+    ${state}=    Router Get    {{ device.host }}    Cisco-IOS-XE-ospf-oper:ospf-oper-data/ospf-state
+    Neighbor Should Be Full    ${state}    {{ other_processes[0].router_id }}
+
+{% endif %}
+{% endfor %}
+{% endif %}
 {% endfor %}
 """
 
@@ -1659,6 +1685,10 @@ def _expected_tests(hosts=None, loopbacks_extra=None):
         lo.update((loopbacks_extra or {}).get(name, {}))
         for lid, address in lo.items():
             tests[f"{name} Loopback{lid}"] = [host, f"interface/Loopback={lid}", address]
+        for other, other_info in EXPECTED_DEVICES.items():
+            if other != name:
+                rid = other_info["loopback0"]
+                tests[f"{name} OSPF neighbor {rid}"] = [host, "Cisco-IOS-XE-ospf-oper:ospf-oper-data/ospf-state", rid]
     return tests
 
 
@@ -2197,7 +2227,7 @@ def print_todo_details(number, statuses):
         console.print("  terraform plan -> no changes")
     elif number == 10:
         console.print("  tests/verify_routers.robot -> rendered by nac-test from the data model")
-        console.print("  9 tests: 3 hostname and 6 loopback, all built from the data")
+        console.print("  15 tests: 3 hostname, 6 loopback, 6 OSPF neighbor, all built from the data")
         console.print("  login -> read from IOSXE_USERNAME and IOSXE_PASSWORD, none in the file")
         for label, _, _ in _robot_mutations():
             console.print(f"  injected: {label}")

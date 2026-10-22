@@ -13,6 +13,15 @@ Router Get
     ${data}=    Evaluate    next(iter($response.json().values()))
     RETURN    ${data}
 
+Neighbor Should Be Full
+    [Documentation]    Fail unless the OSPF data shows this neighbor router ID in state FULL.
+    [Arguments]    ${state}    ${neighbor_id}
+    ${objects}=    Evaluate    (lambda walk, data: walk(walk, data))(lambda walk, x: ([x] if isinstance(x, dict) else []) + [y for v in (list(x.values()) if isinstance(x, dict) else x if isinstance(x, list) else []) for y in walk(walk, v)], $state)
+    ${states}=    Evaluate    [str(o.get('state')) for o in $objects if o.get('neighbor-id') == '${neighbor_id}']
+    Should Not Be Empty    ${states}    No OSPF neighbor ${neighbor_id} in the neighbor table
+    ${full}=    Evaluate    any('full' in s.lower() for s in $states)
+    Should Be True    ${full}    Neighbor ${neighbor_id} is not FULL. States seen: ${states}
+
 *** Test Cases ***
 {% for device in iosxe.devices | default([]) %}
 {{ device.name }} hostname
@@ -28,4 +37,17 @@ Router Get
     Should Contain    ${text}    {{ loopback.ipv4.address }}
 
 {% endfor %}
+{% set my_processes = (device.configuration.routing | default({})).ospf_processes | default([]) %}
+{% if my_processes | length > 0 %}
+{% for other in iosxe.devices | default([]) %}
+{% set other_processes = (other.configuration.routing | default({})).ospf_processes | default([]) %}
+{% if other.name != device.name and other_processes | length > 0 %}
+{{ device.name }} OSPF neighbor {{ other_processes[0].router_id }}
+    [Tags]    iosxe    ospf    operational
+    ${state}=    Router Get    {{ device.host }}    Cisco-IOS-XE-ospf-oper:ospf-oper-data/ospf-state
+    Neighbor Should Be Full    ${state}    {{ other_processes[0].router_id }}
+
+{% endif %}
+{% endfor %}
+{% endif %}
 {% endfor %}
