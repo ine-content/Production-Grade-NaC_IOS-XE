@@ -12,7 +12,7 @@
 
 ## Recap
 
-This folder already has TODO 08 solved. Static routes, the ACL and OSPF are in the data model, the schema and rules 101 to 104, and they're on the routers. Leave them alone. This TODO doesn't add any router config. You'll build a drift check, cause some drift on purpose, and then clean it up.
+This folder already has TODO 08 solved. Static routes, the ACL, and OSPF are in the data model, the schema, and rules 101 to 104, and they're on the routers. Leave them alone. This TODO doesn't add any router config. You'll build a drift check, cause some drift on purpose, and then clean it up.
 
 ## Scenario
 
@@ -115,7 +115,7 @@ Then run:
      terraform plan
      terraform apply
 
-The plan lists what the earlier TODOs configured. Read it and type yes. Then run write memory on R10, R11 and R12 so they keep the config after a reload.
+The plan lists what the earlier TODOs configured. Read it and type yes. Then run write memory on R10, R11, and R12 so they keep the config after a reload.
 
 When it finishes, run the check commands again and make sure the output looks right.
 
@@ -173,7 +173,7 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
    skeleton never runs apply or destroy, and it has no login details in
    it. Leave it that way.
 
-2. On R10, R11 and R12: Take a snapshot on each router, then check it:
+2. On R10, R11, and R12: Take a snapshot on each router, then check it:
 
      copy running-config flash:before-todo09.cfg
      dir flash:before-todo09.cfg
@@ -261,7 +261,7 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
    It must print IN SYNC.
 
    Terraform only changes the running configuration, so a reload would
-   undo it. On R10, R11 and R12: Save the final state to the startup
+   undo it. On R10, R11, and R12: Save the final state to the startup
    configuration:
 
      write memory
