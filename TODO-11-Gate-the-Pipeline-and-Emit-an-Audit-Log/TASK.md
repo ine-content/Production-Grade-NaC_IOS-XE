@@ -12,26 +12,26 @@
 
 ## Recap
 
-TODO 10 is solved in this folder, and so is everything before it. You can validate the data (TODO 03 and 04), plan against the routers (TODO 05 to 09), push (TODO 06) and test the live state (TODO 10). Each of those you ran by hand, one at a time, and you decided when to move on. In this TODO a script makes that decision for you, and writes down every decision it made.
+This folder already has TODO 10 solved, along with everything before it. So far you've validated the data (TODO 03 and 04), planned against the routers (TODO 05 to 09), pushed changes (TODO 06), and tested the live state (TODO 10). You ran each of those by hand, one at a time, and decided when to move on. In this TODO, a script makes that decision for you and writes down every choice it made.
 
 ## Scenario
 
-By hand, it is easy to skip a step. Someone is in a hurry, the schema complains, and they run `terraform apply` anyway. A pipeline makes the order fixed and the stopping automatic. The stages are:
+By hand, it's easy to skip a step. Someone's in a hurry, the schema complains, and they run `terraform apply` anyway. A pipeline fixes the order and stops automatically. The stages are:
 
 1. validate: the data passes the schema and every rule.
 2. plan: Terraform reads the routers and says whether anything would change.
 3. apply: Terraform pushes the changes. This only happens when someone asked for it with `--apply`, and only when the plan found something to push.
 4. verify: the nac-test tests from TODO 10 pass on the live routers.
 
-If a stage fails, the stages after it do not run. Bad data never reaches a router. A router that can't be planned is never changed.
+If a stage fails, the stages after it don't run. Bad data never reaches a router. A router that can't be planned is never changed.
 
-The plan stage needs one careful rule. `terraform plan -detailed-exitcode` exits `2` when there are changes to make. That is not a failure, because it is the answer you wanted. The pipeline records it as `CHANGES` and carries on. Only an exit code of `1`, or anything else unexpected, is a failure.
+The plan stage needs one careful rule. `terraform plan -detailed-exitcode` exits `2` when there are changes to make. That isn't a failure, because it's the answer you wanted. The pipeline records it as `CHANGES` and carries on. Only an exit code of `1`, or anything else unexpected, counts as a failure.
 
 The second half is the audit log. Every stage, including the ones that were skipped, is written to `audit.log` as one line of JSON: when, who, which run, which stage, what command, what exit code, and what the result was. Writing the skipped stages down matters. Later, someone asking "why didn't the change go out?" can read the log and see that validation failed and nothing after it ran.
 
 ## Worked Example
 
-A made-up pipeline with three steps, where the second one fails. It shows the gate and the log line, without any of your tools:
+Here's a made-up pipeline with three steps, where the second one fails. It shows the gate and the log line without any of your tools:
 
 ```python
 import json
@@ -60,13 +60,13 @@ for name, command in steps:
 Things to notice:
 
 - `failed` is set once and checked at the top of every pass of the loop. That one flag is the whole gate.
-- A skipped step still prints a line. It is the same loop, so nothing is forgotten.
+- A skipped step still prints a line. It's the same loop, so nothing is forgotten.
 - `subprocess.run(command)` lets the command print to your terminal as usual, and `.returncode` gives you the exit code.
 - One JSON object on one line is easy to add to a file, easy to search with `grep`, and easy for another program to read.
 
 ## Technical Requirements
 
-`pipeline.py`, in this folder. It runs these four stages in this order:
+Create `pipeline.py` in this folder. It runs these four stages, in this order:
 
 | Stage | Command | Result |
 |-------|---------|--------|
@@ -77,13 +77,13 @@ Things to notice:
 
 After any `FAIL`, every stage still to come is `SKIPPED`. The script exits `1` if any stage failed and `0` otherwise.
 
-Every stage adds one line to `audit.log`, which is appended to and never overwritten. The line is a JSON object with exactly these keys:
+Every stage adds one line to `audit.log`. The file is only ever appended to, never overwritten. Each line is a JSON object with exactly these keys:
 
 ```json
 {"time": "2026-10-08T14:03:11+00:00", "run": "3fa9c1d2", "user": "expert", "stage": "plan", "command": "terraform plan -detailed-exitcode -no-color", "exit_code": 2, "result": "CHANGES"}
 ```
 
-`time` is UTC. `run` is the same for all four lines of one run and different between runs. `exit_code` is `null` for a skipped stage. No password or other login detail may reach the log or the script. The tools read the login from the environment, as before.
+`time` is UTC. `run` is the same for all four lines of one run and different between runs. `exit_code` is `null` for a skipped stage. Passwords and other login details must never reach the log or the script. The tools read the login from the environment, as before.
 
 ## Notation Used Below
 
@@ -107,16 +107,16 @@ Change the path if you put the course folder somewhere else.
 
 ## Before You Start
 
-You can do each TODO on its own, so this one starts from routers that already carry the work of the TODOs before it: everything from TODO 06 to 08, plus RESTCONF, which you turned on by hand in TODO 10.
+You can do each TODO on its own, so this one assumes the routers already have the work from TODO 06 to 08, plus RESTCONF, which you turned on by hand in TODO 10.
 
 Here is how to check R10:
 
      show running-config | include ip http|restconf
      show ip ospf neighbor
 
-You should see ip http secure-server, ip http authentication local and restconf, and two OSPF neighbors in state FULL.
+You should see ip http secure-server, ip http authentication local, and restconf, plus two OSPF neighbors in state FULL.
 
-Whether or not the routers already look like that, start with a baseline apply. This folder already holds the solved data and main.tf for everything before this TODO. The apply does two things: it gives Terraform a record of that earlier work in this folder, so later plans show only this TODO's changes, and it brings any router that is behind up to date (new routers, a router you reset, a restored snapshot). If a router already has the work, the apply simply matches it. On CWS, in this folder, set the router login:
+Even if the routers already look like that, start with a baseline apply. This folder already has the solved data and main.tf for everything before this TODO. The apply does two jobs. It gives Terraform a record of the earlier work, so later plans only show this TODO's changes. And it catches up any router that's behind, like a new router, a reset one, or a restored snapshot. If a router already has the work, the apply just matches it. On CWS, in this folder, set the router login:
 
      export IOSXE_USERNAME=<your username>
      read -s IOSXE_PASSWORD; export IOSXE_PASSWORD
@@ -127,9 +127,9 @@ Then run:
      terraform plan
      terraform apply
 
-The plan lists what the earlier TODOs configured. Read it, and type yes. If RESTCONF is missing, turn it on afterwards on R10, R11 and R12 with: configure terminal, then ip http secure-server, ip http authentication local, restconf, then end. Then run write memory on R10, R11 and R12, so the routers keep it after a reload.
+The plan lists what the earlier TODOs configured. Read it and type yes. If RESTCONF is missing, turn it on afterward on R10, R11, and R12 with: configure terminal, then ip http secure-server, ip http authentication local, restconf, then end. Then run write memory on R10, R11, and R12 so they keep the config after a reload.
 
-When it finishes, run the check commands above again and confirm they show what you should see.
+When it finishes, run the check commands again and make sure the output looks right.
 
 ## Steps
 
@@ -137,7 +137,7 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
 
 ```
 1. On CWS: Create pipeline.py. The record function is complete and you
-   copy it as it is. Fill in each ... :
+   copy it as it is. Replace each ... with your own value:
 
      #!/usr/bin/env python3
      # Run the NaC pipeline: validate, plan, apply (only when approved), verify.
@@ -205,7 +205,7 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
      approved or there are no changes waiting. Both cases skip the stage.
    - The exit code of the script is 1 after a failure and 0 otherwise.
 
-2. On R10, R11, R12: Take a snapshot on each router, then check it:
+2. On R10, R11, and R12: Take a snapshot on each router, then check it:
 
      copy running-config flash:before-todo11.cfg
      dir flash:before-todo11.cfg
@@ -213,7 +213,7 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
    Press Enter to accept the file name. Use bootflash: if flash: isn't
    accepted. The listing must show a size above zero.
 
-4. On CWS: A normal run, with nothing to change:
+3. On CWS: A normal run, with nothing to change:
 
      python pipeline.py
      echo $?
@@ -223,8 +223,8 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
    something on a router differs from your data. Run terraform plan to
    see what, fix that first, and run again.
 
-5. On CWS: The gate. Break the data so validation fails, ask for the
-   most, and see what stops:
+4. On CWS: The gate. Break the data so validation fails, ask for an apply
+   anyway, and see what stops:
 
      sed -i.bak 's/area: 0/area: zero/' data/ospf.nac.yaml
      python pipeline.py --apply
@@ -235,7 +235,7 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
    and the exit code must be 1. Nothing was sent to a router, even with
    --apply.
 
-6. On R11: Make a change the pipeline has to push. Change the
+5. On R11: Make a change the pipeline has to push. Change the
    description of Loopback10 by hand, as in TODO 09:
 
      configure terminal
@@ -243,15 +243,15 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
        description MANUAL-CHANGE
      end
 
-7. On CWS: Run the pipeline without approval:
+6. On CWS: Run the pipeline without approval:
 
      python pipeline.py
 
    plan must say CHANGES, apply must say SKIPPED, and verify must say
-   PASS. The router is still different from the data, because you did
-   not approve anything.
+   PASS. The router is still different from the data, because you didn't
+   approve anything.
 
-8. On CWS: Now approve it:
+7. On CWS: Now approve it:
 
      python pipeline.py --apply
 
@@ -267,14 +267,14 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
 
      write memory
 
-9. On CWS: Look at what the log says about those runs:
+8. On CWS: Look at what the log says about those runs:
 
      tail -n 12 audit.log
 
    You should see the lines of the last three runs, each with its own
    run id.
 
-10. On CWS: Run: python grading.py
+9. On CWS: Run: python grading.py
 ```
 
 ## Test It Yourself (without the grader)
@@ -355,7 +355,7 @@ cd ~/Production-Grade-NaC_IOS-XE/TODO-11-Gate-the-Pipeline-and-Emit-an-Audit-Log
 rm -r /tmp/fakebin /tmp/pipe-test
 ```
 
-On the real routers, steps 4 to 8 should look like this. The run ids and times vary:
+On the real routers, steps 3 to 7 should look like this. The run ids and times vary:
 
 ```
 $ python pipeline.py
@@ -396,7 +396,7 @@ echo $?
 
 ## Put a router back
 
-If step 8 did not finish and R11 still shows `MANUAL-CHANGE`, put it back by hand:
+If step 7 didn't finish and R11 still shows `MANUAL-CHANGE`, put it back by hand:
 
 ```
 configure terminal
@@ -407,7 +407,7 @@ end
 
 Then run `python pipeline.py` and every stage but apply should say PASS. The snapshot from step 2 can also put a router back in one command with `configure replace flash:before-todo11.cfg`. It replaces the whole running configuration, so use it only if nothing else changed on that router since the snapshot.
 
-Don't delete `audit.log` unless you mean to. The grader reads it to see that you really ran the gate and the apply, and if it is gone you have to repeat steps 5 to 8.
+Don't delete `audit.log` unless you mean to. The grader reads it to see that you really ran the gate and the apply, and if it's gone you have to repeat steps 4 to 7.
 
 **Save the reset too.** The reset commands change only the running configuration. Run `write memory` on every router you reset. Without it, a reload brings this TODO's settings back from the startup configuration.
 
@@ -417,7 +417,7 @@ Don't delete `audit.log` unless you mean to. The grader reads it to see that you
 python grading.py
 ```
 
-Run it in the terminal where you exported `IOSXE_USERNAME` and `IOSXE_PASSWORD`. The grader re-checks TODO 01 to TODO 10 first, each against only the data files that belong to it. Then it runs your `pipeline.py` against pretend tools in a temporary folder: a clean run, a run with changes waiting and no approval, an approved run, an approved run with nothing to apply, a run where each of validate, plan, apply and verify fails in turn, and two runs in a row to check that the log is appended to. For each it checks the stage results, the exit code, which tools were called and in what order, and the fields in every log line. It makes sure a pretend password never reaches the log. Then it reads your real `audit.log` and looks for a run that validation stopped and a run that applied a change. Last, `terraform plan -detailed-exitcode` has to exit `0`. Nothing is changed on a router by the grader.
+Run it in the terminal where you exported `IOSXE_USERNAME` and `IOSXE_PASSWORD`. First the grader re-checks TODO 01 to TODO 10, each against only its own data files. Then it runs your `pipeline.py` against pretend tools in a temporary folder: a clean run, a run with changes waiting and no approval, an approved run, an approved run with nothing to apply, a run where each of validate, plan, apply and verify fails in turn, and two runs in a row to check that the log is appended to. For each it checks the stage results, the exit code, which tools were called and in what order, and the fields in every log line. It makes sure a pretend password never reaches the log. Then it reads your real `audit.log` and looks for a run that validation stopped and a run that applied a change. Last, `terraform plan -detailed-exitcode` has to exit `0`. Nothing is changed on a router by the grader.
 
 Before you complete this TODO:
 

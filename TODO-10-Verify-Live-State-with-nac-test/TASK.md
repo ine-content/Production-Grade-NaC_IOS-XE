@@ -12,21 +12,21 @@
 
 ## Recap
 
-TODO 09 is solved in this folder, including `drift_check.sh`. Terraform can tell you the router's configuration matches the data model. That is not the same as the network working. An interface can be configured exactly as written and still be wrong on the router, for example after a manual change that Terraform has not looked at yet. In this TODO you write tests that ask the routers what they are doing right now.
+This folder already has TODO 09 solved, including `drift_check.sh`. Terraform can tell you that a router's configuration matches the data model. But a matching config doesn't prove the network works. An interface can be configured exactly as written and still be wrong, for example after a manual change that Terraform hasn't picked up yet. In this TODO, you write tests that ask the routers what they're doing right now.
 
 ## Scenario
 
-`nac-test` takes the same data model you have been building and a folder of test templates. It renders the templates with the data, so one template becomes many tests, and then runs them with Robot Framework. Add a router or a loopback to the data and the tests for it appear without anyone writing them.
+`nac-test` takes the same data model you've been building and a folder of test templates. It renders the templates with the data, so one template becomes many tests, and then runs them with Robot Framework. Add a router or a loopback to the data, and the tests for it appear without anyone writing them.
 
-The tests talk to each router over RESTCONF, the HTTPS interface of IOS-XE. A RESTCONF request is a normal web request to an address such as `https://10.10.10.10/restconf/data/...`. The router answers with JSON. Terraform used NETCONF in the earlier TODOs. RESTCONF is a different door into the same router, and it is the easier one to call from a test.
+The tests talk to each router over RESTCONF, the HTTPS interface of IOS-XE. A RESTCONF request is a normal web request to an address like `https://10.10.10.10/restconf/data/...`, and the router answers with JSON. Terraform used NETCONF in the earlier TODOs. RESTCONF is a different way into the same router, and it's easier to call from a test.
 
-You write one template, `tests/verify_routers.robot`, with two kinds of test. For each router, check the hostname. For each loopback in the data, check that the router has it with the right address. That is 9 tests for the three routers: three hostname tests and six loopback tests.
+You write one template, `tests/verify_routers.robot`, with two kinds of test. For each router, check the hostname. For each loopback in the data, check that the router has it with the right address. That makes 9 tests for the three routers: three hostname tests and six loopback tests.
 
-One thing needs doing on the routers first. RESTCONF is off until you turn it on, so step 3 enables it. Nothing else on the routers changes, and Terraform doesn't manage it.
+One thing needs doing on the routers first. RESTCONF is off until you turn it on, so step 3 enables it. Nothing else on the routers changes, and Terraform doesn't manage this setting.
 
 ## Worked Example
 
-A made-up router, `EDGE1`, and a template that makes one test for each router in the data. The data:
+Here's a made-up router, `EDGE1`, and a template that makes one test for each router in the data. First, the data:
 
 ```yaml
 iosxe:
@@ -58,22 +58,22 @@ EDGE1 is in the data
 
 Things to notice:
 
-- `{% ... %}` is a Jinja instruction, here a loop. `{{ ... }}` is a Jinja value to print. Both are used up while rendering. They never reach Robot.
-- `${ ... }` is a Robot variable. It is left alone while rendering and filled in while the test runs. So `{{ }}` is for data you already have, and `${ }` is for things you only learn from the router.
-- The name of the data model, `iosxe`, is the top key in your YAML. Everything under it is reachable with dots: `device.configuration.system.hostname`.
+- `{% ... %}` is a Jinja instruction, here a loop. `{{ ... }}` is a Jinja value to print. Both are used up during rendering, so they never reach Robot.
+- `${ ... }` is a Robot variable. It's left alone during rendering and filled in when the test runs. So `{{ }}` is for data you already have, and `${ }` is for things you only learn from the router.
+- `iosxe` is the top key in your YAML. Everything under it is reachable with dots, like `device.configuration.system.hostname`.
 - Add a second router to the data and a second test appears. Nobody edits the template.
-- Robot separates a keyword from its arguments with at least two spaces. One space is not enough.
+- Robot separates a keyword from its arguments with at least two spaces. One space isn't enough.
 
 ## Technical Requirements
 
-One file, `tests/verify_routers.robot`, rendered from the merged data. It makes these tests, and the names must be exactly like this so a report is easy to read:
+Create one file, `tests/verify_routers.robot`, that nac-test renders from the merged data. It must make the tests below. Use these exact names so the report is easy to read:
 
 | Test name | Where | Router path asked (after `/restconf/data/`) | Pass when |
 |-----------|-------|---------------------------------------------|-----------|
 | `<router> hostname` | each device | `Cisco-IOS-XE-native:native/hostname` | the answer equals `configuration.system.hostname` |
 | `<router> Loopback<id>` | each loopback of each device | `Cisco-IOS-XE-native:native/interface/Loopback=<id>` | the answer contains the loopback's `ipv4.address` |
 
-Every request goes to the device's `host` from the data model, over HTTPS. The router's certificate is self-signed, so the tests don't verify it. The login comes from the terminal's environment (`%{IOSXE_USERNAME}` and `%{IOSXE_PASSWORD}` in Robot). No credentials may appear in the file. The tests never change anything on a router.
+Every request goes over HTTPS to the device's `host` from the data model. The router's certificate is self-signed, so the tests don't verify it. The login comes from the terminal's environment (`%{IOSXE_USERNAME}` and `%{IOSXE_PASSWORD}` in Robot), and no credentials may appear in the file. The tests never change anything on a router.
 
 ## Notation Used Below
 
@@ -97,7 +97,7 @@ Change the path if you put the course folder somewhere else.
 
 ## Before You Start
 
-You can do each TODO on its own, so this one starts from routers that already carry the work of the TODOs before it: everything from TODO 06 to 08 (TODO 09 adds no router configuration).
+You can do each TODO on its own, so this one assumes the routers already have the work from TODO 06 to 08. TODO 09 adds no router configuration.
 
 Here is how to check R10:
 
@@ -106,7 +106,7 @@ Here is how to check R10:
 
 You should see two neighbors in state FULL, and Loopback10 with the description BRANCH-LAN and R10's address 172.16.10.1, mask 255.255.255.255.
 
-Whether or not the routers already look like that, start with a baseline apply. This folder already holds the solved data and main.tf for everything before this TODO. The apply does two things: it gives Terraform a record of that earlier work in this folder, so later plans show only this TODO's changes, and it brings any router that is behind up to date (new routers, a router you reset, a restored snapshot). If a router already has the work, the apply simply matches it. On CWS, in this folder, set the router login:
+Even if the routers already look like that, start with a baseline apply. This folder already has the solved data and main.tf for everything before this TODO. The apply does two jobs. It gives Terraform a record of the earlier work, so later plans only show this TODO's changes. And it catches up any router that's behind, like a new router, a reset one, or a restored snapshot. If a router already has the work, the apply just matches it. On CWS, in this folder, set the router login:
 
      export IOSXE_USERNAME=<your username>
      read -s IOSXE_PASSWORD; export IOSXE_PASSWORD
@@ -117,9 +117,9 @@ Then run:
      terraform plan
      terraform apply
 
-The plan lists what the earlier TODOs configured. Read it, and type yes. Then run write memory on R10, R11 and R12, so the routers keep it after a reload.
+The plan lists what the earlier TODOs configured. Read it and type yes. Then run write memory on R10, R11, and R12 so they keep the config after a reload.
 
-When it finishes, run the check commands above again and confirm they show what you should see.
+When it finishes, run the check commands again and make sure the output looks right.
 
 ## Steps
 
@@ -134,7 +134,7 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
    found, install the course packages again as described in
    OFFLINE-SETUP.md.
 
-2. On R10, R11, R12: Take a snapshot on each router, then check it:
+2. On R10, R11, and R12: Take a snapshot on each router, then check it:
 
      copy running-config flash:before-todo10.cfg
      dir flash:before-todo10.cfg
@@ -142,7 +142,7 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
    Press Enter to accept the file name. Use bootflash: if flash: isn't
    accepted. The listing must show a size above zero.
 
-3. On R10, R11, R12: Turn on RESTCONF. First look at what is already
+3. On R10, R11, and R12: Turn on RESTCONF. First look at what is already
    there:
 
      show running-config | include ip http|restconf
@@ -160,13 +160,12 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
    reset section at the end needs it.
 
    RESTCONF is only in the running configuration until you save it, so
-   a reload would turn it off again. On R10, R11, R12: Save it:
+   a reload would turn it off again. On R10, R11, and R12: Save it:
 
      write memory
 
 4. On CWS: Ask each router for its hostname the way a test will. This
-   needs the router login from Before You Start, still set in this terminal.
-
+   uses the router login you set in Before You Start.
 
    Then run:
 
@@ -221,8 +220,7 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
      in front. It must match the Technical Requirements table exactly.
    - Router Get takes the router's address first, then the path.
 
-6. On CWS: Render the tests without running them, and look at what you
-   got:
+6. On CWS: Render the tests without running them, then look at the result:
 
      nac-test -d data -t tests -o test-results --render-only
      grep -E '^R1[0-2] ' test-results/robot_results/verify_routers.robot
@@ -279,7 +277,7 @@ grep -c '10.10.10.99' test-results/robot_results/verify_routers.robot
 mv data/devices.nac.yaml.bak data/devices.nac.yaml
 ```
 
-The count should be `3`, one line for each of R12's three tests. If it is lower, an address was typed into the template instead of coming from the data. Render again after the `mv` so the output folder matches your real data.
+The count should be `3`, one line for each of R12's three tests. If it's lower, an address was typed into the template instead of coming from the data. Render again after the `mv` so the output folder matches your real data.
 
 A live run that passes ends like this. The times differ:
 
@@ -287,7 +285,7 @@ A live run that passes ends like this. The times differ:
 9 tests, 9 passed, 0 failed, 0 skipped.
 ```
 
-Now break something on a router, which the plan from TODO 09 would not have noticed as a broken network. On R12:
+Now break something on a router and see what the tests say. On R12:
 
 ```
 configure terminal
@@ -303,7 +301,7 @@ nac-test -d data -t tests -o test-results
 echo $?
 ```
 
-Expect one failure, `R12 Loopback10`. The message under it says the answer from the router does not contain `172.16.12.1`. The exit code is the number of failed tests, so `1`. The other 8 still pass. A plan would also notice this one, but only the test says in plain words which check failed. Then put it back on R12:
+Expect one failure, `R12 Loopback10`. The message under it says the answer from the router doesn't contain `172.16.12.1`. The exit code is the number of failed tests, so `1`. The other 8 still pass. A plan would also notice this one, but only the test says in plain words which check failed. Then put it back on R12:
 
 ```
 configure terminal
@@ -316,7 +314,7 @@ Run the tests again. They must pass again.
 
 ## Put a router back
 
-To undo this TODO on the routers, remove only the lines that were missing in step 3. Entered on each router, the full set is:
+To undo this TODO, remove only the lines that were missing in step 3. If all three were missing, enter this on each router:
 
 ```
 configure terminal
@@ -328,7 +326,7 @@ end
 
 Leave out any line that was already in the configuration before step 3, because something else may depend on it. Leave OSPF and the rest alone. The snapshot from step 2 can also put a router back in one command with `configure replace flash:before-todo10.cfg`. It replaces the whole running configuration, so use it only if nothing else changed on that router since the snapshot.
 
-Terraform isn't involved, so `terraform plan` is not affected either way.
+Terraform isn't involved, so `terraform plan` isn't affected either way.
 
 **Save the reset too.** The reset commands change only the running configuration. Run `write memory` on every router you reset. Without it, a reload brings this TODO's settings back from the startup configuration.
 
@@ -338,7 +336,7 @@ Terraform isn't involved, so `terraform plan` is not affected either way.
 python grading.py
 ```
 
-Run it in the terminal where you exported `IOSXE_USERNAME` and `IOSXE_PASSWORD`. The grader re-checks TODO 01 to TODO 09 first, each against only the data files that belong to it. Then it checks that your template reads the login from the environment and has none typed in. It renders the template with nac-test and compares the 9 tests, names and contents, with what the data says. It changes the data twice in a temporary copy, adding a loopback and moving R12 to a new address, and the rendered tests must change with it. A Robot dry run must pass. Last, it runs the real tests against R10, R11 and R12, and every one must pass. Your real files are never touched, and nothing is changed on a router.
+Run it in the terminal where you exported `IOSXE_USERNAME` and `IOSXE_PASSWORD`. First the grader re-checks TODO 01 to TODO 09, each against only its own data files. Then it checks that your template reads the login from the environment and has none typed in. It renders the template with nac-test and compares the 9 tests, names and contents, with what the data says. In a temporary copy it changes the data twice, adding a loopback and moving R12 to a new address, and the rendered tests must change with it. A Robot dry run must pass. Last, it runs the real tests against R10, R11, and R12, and every one must pass. Your real files are never touched, and nothing is changed on a router.
 
 Before you complete this TODO:
 
