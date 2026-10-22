@@ -1611,9 +1611,9 @@ HINTS[10] = (
     "it with show running-config interface Loopback<id>. If an OSPF neighbor test fails, run show ip ospf\n"
     "neighbor on that router: a neighbor that isn't FULL is usually a mismatched timer or a shut interface\n"
     "(check show ip ospf interface GigabitEthernet1 and look for a hello-interval you added by hand). If you\n"
-    "edited the template, put it back the way it was (the Solution panel shows the original)."
+    "edited the template, restore it from the original TODO-10 folder."
 )
-SOLUTIONS[10] = """# tests/verify_routers.robot
+ROBOT_TEMPLATE_10 = """# tests/verify_routers.robot
 *** Settings ***
 Documentation     The live routers match the data model
 Library           RequestsLibrary
@@ -1667,6 +1667,33 @@ Neighbor Should Be Full
 {% endfor %}
 {% endif %}
 {% endfor %}
+"""
+SOLUTIONS[10] = """# Nothing to write in this TODO. The tests/verify_routers.robot file is provided.
+# The tests fail when the routers or this terminal aren't ready. Fix those first.
+
+# 1. On R10, R11, and R12: turn on RESTCONF, then save
+configure terminal
+ ip http secure-server
+ ip http authentication local
+ restconf
+end
+write memory
+
+# 2. On CWS, in the same terminal you run the grader in: set the router login
+export IOSXE_USERNAME=<your username>
+read -s IOSXE_PASSWORD; export IOSXE_PASSWORD
+
+# 3. On CWS: ask a router for its hostname the way a test does (try 10.10.10.11 and .12 too)
+curl -sk -u "$IOSXE_USERNAME:$IOSXE_PASSWORD" -H 'Accept: application/yang-data+json' https://10.10.10.10/restconf/data/Cisco-IOS-XE-native:native/hostname
+
+# 4. If an OSPF neighbor test fails, check the neighbors and remove a hello-interval you added by hand
+show ip ospf neighbor
+configure terminal
+ interface GigabitEthernet1
+  no ip ospf hello-interval
+end
+
+# 5. If you edited tests/verify_routers.robot, restore it from the original TODO-10 folder.
 """
 
 
@@ -2298,7 +2325,7 @@ def feedback(failed):
 
     if answer == "s":
         console.print()
-        lexer = {4: "python", 5: "terraform", 6: "terraform", 7: "text", 8: "text", 9: "bash", 10: "text", 11: "python"}.get(failed, "yaml")
+        lexer = {4: "python", 5: "terraform", 6: "terraform", 7: "text", 8: "text", 9: "bash", 10: "bash", 11: "python"}.get(failed, "yaml")
         syntax = Syntax(SOLUTIONS[failed], lexer, theme="ansi_dark", line_numbers=False, word_wrap=True)
         console.print(Panel(syntax, title="Solution", title_align="left", border_style=GREEN, padding=(0, 1)))
         console.print()
