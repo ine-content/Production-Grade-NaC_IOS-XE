@@ -148,6 +148,31 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
    table. The grep line prints the plan's summary, for example
    "Plan: 0 to add, 1 to change, 0 to destroy."
 
+   What goes in each blank, from top to bottom:
+
+     code=...             the exit code of the plan command on the line
+                          above. In the shell that is $?, and it must be
+                          the very next line after the plan, because the
+                          next command overwrites it. Write: code=$?
+     -eq ... (first if)   the plan exit code that means no changes: 0
+     echo "..."           (first if) a line that starts with IN SYNC, for
+                          example: IN SYNC: the routers match the data model
+     exit ...             (first if) the script's exit code for no changes: 0
+     -eq ... (elif)       the plan exit code that means changes are
+                          present: 2
+     echo "..."           (elif) a line that starts with DRIFT, for
+                          example: DRIFT: the routers differ from the data model
+     exit ...             (elif) the script's exit code for drift: 2
+     echo "..."           (else) a line that starts with ERROR, for
+                          example: ERROR: terraform plan failed, see drift-plan.txt
+     exit ...             (else) the script's exit code for any other
+                          result: 1
+
+   The three branches match the three rows of the table above. Only the
+   first word of each message is checked. The rest is up to you. The
+   skeleton never runs apply or destroy, and it has no login details in
+   it. Leave it that way.
+
 2. On R10, R11 and R12: Take a snapshot on each router, then check it:
 
      copy running-config flash:before-todo09.cfg
