@@ -12,26 +12,26 @@
 
 ## Recap
 
-TODO 08 is solved in this folder: static routes, the ACL and OSPF are in the data model, in the schema, under rules 101 to 104, and on the routers. They stay as they are. This TODO adds no new router configuration. You build a drift check, then make some drift on purpose and clear it.
+This folder already has TODO 08 solved. Static routes, the ACL and OSPF are in the data model, the schema and rules 101 to 104, and they're on the routers. Leave them alone. This TODO doesn't add any router config. You'll build a drift check, cause some drift on purpose, and then clean it up.
 
 ## Scenario
 
 The data model says what the routers should look like. Someone logs in at 2 a.m. to fix something, types a command, and goes home. The router now differs from the data model, and nobody wrote it down. That gap is drift.
 
-Terraform can find it. `terraform plan` reads the live router, compares it with the data model, and lists what it would change. The exit code of `terraform plan -detailed-exitcode` is a clean signal: `0` nothing to change, `2` there are differences, `1` an error. You will wrap that in a small script, `drift_check.sh`, which prints one clear line and passes the same exit code on. In TODO 11 a pipeline will call it.
+Terraform can spot it. `terraform plan` reads the live router, compares it to the data model, and lists what it would change. Add `-detailed-exitcode` and the exit code tells you the result: `0` means nothing to change, `2` means there are differences, and `1` means an error. You'll wrap that in a small script, `drift_check.sh`. It prints one clear line and passes the same exit code along. In TODO 11, a pipeline will call it.
 
-When the check says DRIFT, someone has to decide which side is right. There are two answers:
+When the check says DRIFT, someone has to decide which side is right. It can go two ways:
 
 - The router is wrong. Someone made a mistake, so push the data model back with `terraform apply`.
 - The change is right. The data model is behind, so edit the YAML to match, and the plan goes quiet without touching the router.
 
 Either way, the data model is where the decision gets recorded.
 
-One limit to know about. A plan only compares what Terraform manages. If someone adds something Terraform has never heard of, such as a route that isn't in your data, the plan says nothing. You will see that happen too.
+There's one catch. A plan only compares what Terraform manages. If someone adds something Terraform has never heard of, like a route that isn't in your data, the plan says nothing. You'll see that happen too.
 
 ## Worked Example
 
-A made-up script that checks a made-up thing: whether a file matches what it should. It shows the pattern you need, which is run, capture the exit code at once, branch on it, and exit with something the caller can read:
+Here's a made-up script that checks whether a file matches a saved copy. It shows the pattern you need: run a command, grab the exit code right away, branch on it, and exit with something the caller can read:
 
 ```bash
 #!/usr/bin/env bash
@@ -69,7 +69,7 @@ Things to notice:
 | 2 | `DRIFT` | the plan's `Plan:` summary line | 2 |
 | anything else | `ERROR` | nothing more | 1 |
 
-The full plan output goes into `drift-plan.txt` in this folder every time. The text after the first word is up to you. The script may only plan. It must never run `apply` or `destroy`, and it must not contain any login details. They come from the environment, as in TODO 06.
+The script saves the full plan output to `drift-plan.txt` in this folder every time. What you write after the first word is up to you. The script may only plan. It must never run `apply` or `destroy`, and it can't contain login details, because those come from the environment, as in TODO 06.
 
 After you finish, the description of Loopback10 on every router in `data/ospf.nac.yaml` must be back to `BRANCH-LAN`, and `terraform plan` must show no changes.
 
@@ -95,7 +95,7 @@ Change the path if you put the course folder somewhere else.
 
 ## Before You Start
 
-You can do each TODO on its own, so this one starts from routers that already carry the work of the TODOs before it: everything from TODO 06 to 08.
+You can do each TODO on its own, so this one assumes the routers already have the work from TODO 06 to 08.
 
 Here is how to check R10:
 
@@ -104,7 +104,7 @@ Here is how to check R10:
 
 You should see two neighbors in state FULL, and Loopback10 with the description BRANCH-LAN and R10's address 172.16.10.1, mask 255.255.255.255.
 
-Whether or not the routers already look like that, start with a baseline apply. This folder already holds the solved data and main.tf for everything before this TODO. The apply does two things: it gives Terraform a record of that earlier work in this folder, so later plans show only this TODO's changes, and it brings any router that is behind up to date (new routers, a router you reset, a restored snapshot). If a router already has the work, the apply simply matches it. On CWS, in this folder, set the router login:
+Even if the routers already look like that, start with a baseline apply. This folder already has the solved data and main.tf for everything before this TODO. The apply does two jobs. It gives Terraform a record of the earlier work, so later plans only show this TODO's changes. And it catches up any router that's behind, like a new router, a reset one, or a restored snapshot. If a router already has the work, the apply just matches it. On CWS, in this folder, set the router login:
 
      export IOSXE_USERNAME=<your username>
      read -s IOSXE_PASSWORD; export IOSXE_PASSWORD
@@ -115,9 +115,9 @@ Then run:
      terraform plan
      terraform apply
 
-The plan lists what the earlier TODOs configured. Read it, and type yes. Then run write memory on R10, R11 and R12, so the routers keep it after a reload.
+The plan lists what the earlier TODOs configured. Read it and type yes. Then run write memory on R10, R11 and R12 so they keep the config after a reload.
 
-When it finishes, run the check commands above again and confirm they show what you should see.
+When it finishes, run the check commands again and make sure the output looks right.
 
 ## Steps
 
@@ -197,8 +197,8 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
        description MANUAL-CHANGE
      end
 
-   On R10: Add a route that is not in the data model. 192.0.2.0/24 is
-   a documentation range, so it is harmless:
+   On R10: Add a route that isn't in the data model. 192.0.2.0/24 is a
+   documentation range, so it's harmless:
 
      configure terminal
       ip route 192.0.2.0 255.255.255.0 10.10.10.11
@@ -213,16 +213,16 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
 
      grep -n 'description' drift-plan.txt
 
-   Terraform found the loopback on R11. It did not find the route on R10.
-   Remember that for later.
+   Terraform found the loopback change on R11. It didn't find the route on
+   R10. Keep that in mind, because it matters later.
 
 6. On CWS: The router is wrong here, so push the data model back:
 
      terraform apply
 
-   Look through the plan. It must change one thing, the description on
-   Loopback10 of R11. Type yes. Then run bash drift_check.sh again and
-   the result must be IN SYNC.
+   Read the plan. It should change exactly one thing, the description on
+   Loopback10 of R11. Type yes, then run bash drift_check.sh again. It
+   must say IN SYNC.
 
 7. On R10: Remove the route that Terraform never saw:
 
@@ -234,27 +234,27 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
 
      cp data/ospf.nac.yaml /tmp/ospf.before-todo09.yaml
 
-   On R12: Now somebody renames the branch LAN on the router, and this
-   time the change is correct:
+   On R12: This time somebody renames the branch LAN on the router, and
+   the change is correct:
 
      configure terminal
       interface Loopback10
        description BRANCH-LAN-SEA
      end
 
-   On CWS: Run bash drift_check.sh. It must say DRIFT. This time the
-   router is right and the data is behind. Edit data/ospf.nac.yaml, and in
-   R12's entry change the description of Loopback10 from BRANCH-LAN to
-   BRANCH-LAN-SEA. Only that one line. Run the check again. It must
-   say IN SYNC, and the router wasn't touched.
+   On CWS: Run bash drift_check.sh. It must say DRIFT. Here the router
+   is right and the data is behind. Open data/ospf.nac.yaml and, in R12's
+   entry, change the description of Loopback10 from BRANCH-LAN to
+   BRANCH-LAN-SEA. Change just that one line. Run the check again. It
+   must say IN SYNC, and you never touched the router.
 
 9. On CWS: Put the data back and the router with it:
 
      cp /tmp/ospf.before-todo09.yaml data/ospf.nac.yaml
      terraform apply
 
-   The plan must change one thing, the Loopback10 description on R12.
-   Type yes. Then:
+   The plan should change exactly one thing, the Loopback10 description
+   on R12. Type yes. Then:
 
      bash drift_check.sh
 
@@ -371,7 +371,7 @@ Then restore the data file if you changed it (`cp /tmp/ospf.before-todo09.yaml d
 python grading.py
 ```
 
-Run it in the terminal where you exported `IOSXE_USERNAME` and `IOSXE_PASSWORD`. The grader re-checks TODO 01 to TODO 08 first, each against only the data files that belong to it. Then it runs your `drift_check.sh` four times in a temporary folder, against a pretend `terraform` that exits 0, 2, 1 and 3. It checks the first word of the message, the extra `Plan:` line on drift, the exit code, that `drift-plan.txt` was written, and that the only thing the script ever ran was `plan -detailed-exitcode`. It also reads the script itself and rejects `apply`, `destroy` and login details. Then it checks that the Loopback10 description of every router in the merged data is `BRANCH-LAN` again, and last, `terraform plan -detailed-exitcode` has to exit `0`. Your real files are never touched, and nothing is sent to a router.
+Run it in the terminal where you exported `IOSXE_USERNAME` and `IOSXE_PASSWORD`. First the grader re-checks TODO 01 to TODO 08, each against only its own data files. Then it runs your `drift_check.sh` four times in a temporary folder, using a pretend `terraform` that exits 0, 2, 1 and 3. For each run it checks the first word of the message, the extra `Plan:` line on drift, the exit code, that `drift-plan.txt` was written, and that the script only ever ran `plan -detailed-exitcode`. It also reads the script and rejects `apply`, `destroy` and login details. Next it checks that every router's Loopback10 description in the merged data is `BRANCH-LAN` again. Last, `terraform plan -detailed-exitcode` has to exit `0`. Your real files are never touched, and nothing goes to a router.
 
 Before you complete this TODO:
 
