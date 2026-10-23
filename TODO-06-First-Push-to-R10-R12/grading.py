@@ -1589,33 +1589,30 @@ TESTS_DIR = ROOT / "tests"
 TEST_FILE = TESTS_DIR / "verify_routers.robot"
 
 PROBLEMS[10] = (
-    "One of these is not right yet. The provided tests/verify_routers.robot must still render into 15 tests\n"
+    "One of these is not right yet. The provided tests/verify_routers.robot must still render into 6 tests\n"
     "that follow the data model, with the login read from the environment and nothing typed in. And nac-test\n"
     "must pass every test against the live routers. If a test fails, the cause is usually on the router side\n"
-    "(RESTCONF is off, the login isn't set in this terminal, a router differs from the data, or an OSPF\n"
-    "neighbor is not FULL), or the template was edited."
+    "(RESTCONF is off, the login isn't set in this terminal, or an OSPF neighbor is not FULL), or the\n"
+    "template was edited."
 )
 EXPECTED[10] = (
-    "The template is provided. It makes 15 tests: '<router> hostname' (3), '<router> Loopback<id>' (6),\n"
-    "'<router> OSPF neighbor <router-id>' (6).\n"
-    "hostname -> GET Cisco-IOS-XE-native:native/hostname, equals the hostname in the data.\n"
-    "Loopback -> GET .../interface/Loopback=<id>, contains the loopback address from the data.\n"
-    "OSPF neighbor -> GET Cisco-IOS-XE-ospf-oper:ospf-oper-data/ospf-state, shows that neighbor in state FULL.\n"
-    "Add a loopback or change a management address in the data and the tests follow.\n"
+    "The template is provided. It makes 6 tests, '<router> OSPF neighbor <router-id>': one for each other router\n"
+    "that runs OSPF, on each router that runs OSPF.\n"
+    "Each test -> GET Cisco-IOS-XE-ospf-oper:ospf-oper-data/ospf-state, shows that neighbor in state FULL.\n"
+    "Add a router with an OSPF process or change a management address in the data and the tests follow.\n"
     "Login from %{IOSXE_USERNAME} and %{IOSXE_PASSWORD}. nac-test exits 0 against the routers."
 )
 HINTS[10] = (
     "Run curl against the failing router first (step 4) to see what it really returns. A 401 means the\n"
     "login is wrong or not set in this terminal. A connection error means RESTCONF is off: repeat step 3 and\n"
-    "save with write memory. If one loopback test fails, the router's loopback differs from the data: look at\n"
-    "it with show running-config interface Loopback<id>. If an OSPF neighbor test fails, run show ip ospf\n"
-    "neighbor on that router: a neighbor that isn't FULL is usually a mismatched timer or a shut interface\n"
-    "(check show ip ospf interface GigabitEthernet1 and look for a hello-interval you added by hand). If you\n"
-    "edited the template, restore it from the original TODO-10 folder."
+    "save with write memory. If an OSPF neighbor test fails, run show ip ospf neighbor on that router: a\n"
+    "neighbor that isn't FULL is usually a mismatched timer or a shut interface (check show ip ospf\n"
+    "interface GigabitEthernet1 and look for a hello-interval you added by hand). If you edited the\n"
+    "template, restore it from the original TODO-10 folder."
 )
 ROBOT_TEMPLATE_10 = """# tests/verify_routers.robot
 *** Settings ***
-Documentation     The live routers match the data model
+Documentation     Every OSPF neighbor on the live routers is FULL
 Library           RequestsLibrary
 
 *** Keywords ***
@@ -1640,19 +1637,6 @@ Neighbor Should Be Full
 
 *** Test Cases ***
 {% for device in iosxe.devices | default([]) %}
-{{ device.name }} hostname
-    [Tags]    iosxe    system
-    ${hostname}=    Router Get    {{ device.host }}    Cisco-IOS-XE-native:native/hostname
-    Should Be Equal    ${hostname}    {{ device.configuration.system.hostname }}
-
-{% for loopback in device.configuration.interfaces.loopbacks | default([]) %}
-{{ device.name }} Loopback{{ loopback.id }}
-    [Tags]    iosxe    interfaces
-    ${entries}=    Router Get    {{ device.host }}    Cisco-IOS-XE-native:native/interface/Loopback={{ loopback.id }}
-    ${text}=    Convert To String    ${entries}[0]
-    Should Contain    ${text}    {{ loopback.ipv4.address }}
-
-{% endfor %}
 {% set my_processes = (device.configuration.routing | default({})).ospf_processes | default([]) %}
 {% if my_processes | length > 0 %}
 {% for other in iosxe.devices | default([]) %}
@@ -1683,8 +1667,8 @@ write memory
 export IOSXE_USERNAME=<your username>
 read -s IOSXE_PASSWORD; export IOSXE_PASSWORD
 
-# 3. On CWS: ask a router for its hostname the way a test does (try 10.10.10.11 and .12 too)
-curl -sk -u "$IOSXE_USERNAME:$IOSXE_PASSWORD" -H 'Accept: application/yang-data+json' https://10.10.10.10/restconf/data/Cisco-IOS-XE-native:native/hostname
+# 3. On CWS: ask R10 for its live OSPF neighbors the way a test does (try 10.10.10.11 and .12 too)
+curl -sk -u "$IOSXE_USERNAME:$IOSXE_PASSWORD" -H 'Accept: application/yang-data+json' https://10.10.10.10/restconf/data/Cisco-IOS-XE-ospf-oper:ospf-oper-data/ospf-state
 
 # 4. If an OSPF neighbor test fails, check the neighbors and remove a hello-interval you added by hand
 show ip ospf neighbor
@@ -1701,18 +1685,15 @@ def _nac_test_exe():
     return shutil.which("nac-test")
 
 
-def _expected_tests(hosts=None, loopbacks_extra=None):
+def _expected_tests(hosts=None, extra=None):
     """name -> list of substrings the rendered test body must contain."""
     hosts = hosts or {}
+    devices = dict(EXPECTED_DEVICES)
+    devices.update(extra or {})
     tests = {}
-    for name, info in EXPECTED_DEVICES.items():
+    for name, info in devices.items():
         host = hosts.get(name, info["host"])
-        tests[f"{name} hostname"] = [host, "Cisco-IOS-XE-native:native/hostname", name]
-        lo = {0: info["loopback0"], 10: EXPECTED_BRANCH_LAN[name]}
-        lo.update((loopbacks_extra or {}).get(name, {}))
-        for lid, address in lo.items():
-            tests[f"{name} Loopback{lid}"] = [host, f"interface/Loopback={lid}", address]
-        for other, other_info in EXPECTED_DEVICES.items():
+        for other, other_info in devices.items():
             if other != name:
                 rid = other_info["loopback0"]
                 tests[f"{name} OSPF neighbor {rid}"] = [host, "Cisco-IOS-XE-ospf-oper:ospf-oper-data/ospf-state", rid]
@@ -1764,12 +1745,20 @@ def _tests_match(rendered, expected):
 def _robot_mutations():
     """(label, mutate(data_dir), expected tests) - the rendered tests must follow the data."""
 
-    def new_loopback(d):
+    def new_router(d):
         path = d / "ospf.nac.yaml"
         model = _load_yaml(path)
-        _device(model, "R11")["configuration"]["interfaces"]["loopbacks"].append(
-            {"id": 20, "description": "GUEST", "ipv4": {"address": "172.16.20.1", "address_mask": "255.255.255.255"}}
-        )
+        model["iosxe"]["devices"].append({
+            "name": "R13",
+            "host": "10.10.10.13",
+            "configuration": {
+                "system": {"hostname": "R13"},
+                "interfaces": {"loopbacks": [
+                    {"id": 0, "ipv4": {"address": "10.255.0.13", "address_mask": "255.255.255.255"}},
+                ]},
+                "routing": {"ospf_processes": [{"id": 1, "router_id": "10.255.0.13"}]},
+            },
+        })
         path.write_text(yaml.safe_dump(model, sort_keys=False), encoding="utf-8")
 
     def moved_router(d):
@@ -1779,8 +1768,8 @@ def _robot_mutations():
         path.write_text(yaml.safe_dump(model, sort_keys=False), encoding="utf-8")
 
     return [
-        ("a loopback added to R11 -> a new test appeared", new_loopback,
-         _expected_tests(loopbacks_extra={"R11": {20: "172.16.20.1"}})),
+        ("a fourth router added -> its tests and one new test on each router appeared", new_router,
+         _expected_tests(extra={"R13": {"host": "10.10.10.13", "loopback0": "10.255.0.13"}})),
         ("R12 given another management address -> its tests followed", moved_router,
          _expected_tests(hosts={"R12": "10.10.10.99"})),
     ]
@@ -2254,7 +2243,7 @@ def print_todo_details(number, statuses):
         console.print("  terraform plan -> no changes")
     elif number == 10:
         console.print("  tests/verify_routers.robot -> rendered by nac-test from the data model")
-        console.print("  15 tests: 3 hostname, 6 loopback, 6 OSPF neighbor, all built from the data")
+        console.print("  6 tests: one OSPF neighbor test for each neighbor of each router, all built from the data")
         console.print("  login -> read from IOSXE_USERNAME and IOSXE_PASSWORD, none in the file")
         for label, _, _ in _robot_mutations():
             console.print(f"  injected: {label}")

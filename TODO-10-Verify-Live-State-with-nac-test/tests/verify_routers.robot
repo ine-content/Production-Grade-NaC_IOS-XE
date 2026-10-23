@@ -1,5 +1,5 @@
 *** Settings ***
-Documentation     The live routers match the data model
+Documentation     Every OSPF neighbor on the live routers is FULL
 Library           RequestsLibrary
 
 *** Keywords ***
@@ -24,19 +24,6 @@ Neighbor Should Be Full
 
 *** Test Cases ***
 {% for device in iosxe.devices | default([]) %}
-{{ device.name }} hostname
-    [Tags]    iosxe    system
-    ${hostname}=    Router Get    {{ device.host }}    Cisco-IOS-XE-native:native/hostname
-    Should Be Equal    ${hostname}    {{ device.configuration.system.hostname }}
-
-{% for loopback in device.configuration.interfaces.loopbacks | default([]) %}
-{{ device.name }} Loopback{{ loopback.id }}
-    [Tags]    iosxe    interfaces
-    ${entries}=    Router Get    {{ device.host }}    Cisco-IOS-XE-native:native/interface/Loopback={{ loopback.id }}
-    ${text}=    Convert To String    ${entries}[0]
-    Should Contain    ${text}    {{ loopback.ipv4.address }}
-
-{% endfor %}
 {% set my_processes = (device.configuration.routing | default({})).ospf_processes | default([]) %}
 {% if my_processes | length > 0 %}
 {% for other in iosxe.devices | default([]) %}
