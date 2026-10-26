@@ -336,7 +336,11 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
 
 ## Test It Yourself (without the grader)
 
-First test every path without a router, with pretend tools. They exit with whatever code you choose and do nothing else. Work in a scratch folder, so the real `audit.log` isn't touched:
+### Part 1: Try it with pretend tools
+
+This part checks your script's logic without touching a router. You make pretend versions of `nac-validate`, `terraform`, and `nac-test`. Each pretend tool just exits with a code you choose.
+
+Set them up once. Everything happens in a scratch folder, so your real `audit.log` isn't touched:
 
 ```
 mkdir -p /tmp/fakebin /tmp/pipe-test
@@ -354,17 +358,15 @@ cp pipeline.py /tmp/pipe-test
 cd /tmp/pipe-test
 ```
 
-Now try the cases. Each runs the pipeline with different pretend results:
+The letters in front of a command are knobs. `V=1` makes the pretend `nac-validate` fail. `P=2` makes the pretend plan say "changes waiting". `A=1` makes the pretend apply fail. A knob you don't set means exit code 0, which is a pass.
+
+Now run five cases, one at a time. Each one shows the command and what you should see.
+
+**Case 1: everything passes, no `--apply`.**
 
 ```
 PATH=/tmp/fakebin:$PATH python pipeline.py; echo "exit $?"
-PATH=/tmp/fakebin:$PATH P=2 python pipeline.py; echo "exit $?"
-PATH=/tmp/fakebin:$PATH P=2 python pipeline.py --apply; echo "exit $?"
-PATH=/tmp/fakebin:$PATH V=1 python pipeline.py --apply; echo "exit $?"
-PATH=/tmp/fakebin:$PATH P=2 A=1 python pipeline.py --apply; echo "exit $?"
 ```
-
-Expect, in this order:
 
 ```
 validate  PASS
@@ -372,25 +374,65 @@ plan      PASS
 apply     SKIPPED
 verify    PASS
 exit 0
+```
 
+Apply is skipped because there was nothing to push, and you didn't ask for it.
+
+**Case 2: the plan finds changes, no `--apply`.**
+
+```
+PATH=/tmp/fakebin:$PATH P=2 python pipeline.py; echo "exit $?"
+```
+
+```
 validate  PASS
 plan      CHANGES
 apply     SKIPPED
 verify    PASS
 exit 0
+```
 
+`CHANGES` isn't a failure. Apply is still skipped, because you didn't approve it.
+
+**Case 3: the plan finds changes, with `--apply`.**
+
+```
+PATH=/tmp/fakebin:$PATH P=2 python pipeline.py --apply; echo "exit $?"
+```
+
+```
 validate  PASS
 plan      CHANGES
 apply     PASS
 verify    PASS
 exit 0
+```
 
+This is the only case where apply runs.
+
+**Case 4: validation fails, even with `--apply`.**
+
+```
+PATH=/tmp/fakebin:$PATH V=1 python pipeline.py --apply; echo "exit $?"
+```
+
+```
 validate  FAIL
 plan      SKIPPED
 apply     SKIPPED
 verify    SKIPPED
 exit 1
+```
 
+This is the gate. One failure stops everything after it.
+
+**Case 5: apply fails.**
+
+```
+PATH=/tmp/fakebin:$PATH P=2 A=1 python pipeline.py --apply; echo "exit $?"
+```
+
+```
 validate  PASS
 plan      CHANGES
 apply     FAIL
@@ -398,7 +440,9 @@ verify    SKIPPED
 exit 1
 ```
 
-If you print extra message lines of your own, such as a note that the pipeline stopped, they can appear too. The stage lines and the exit codes are what matter. Then look at the log of those five runs:
+If you print extra message lines of your own, such as a note that the pipeline stopped, they can appear too. The stage lines and the exit codes are what matter.
+
+Now check the log from those five runs. Each run writes four lines, so there should be 20:
 
 ```
 wc -l audit.log
@@ -412,7 +456,9 @@ cd ~/Production-Grade-NaC_IOS-XE/TODO-11-Gate-the-Pipeline-and-Emit-an-Audit-Log
 rm -r /tmp/fakebin /tmp/pipe-test
 ```
 
-On the real routers, steps 3 to 7 should look like this. The run ids and times vary:
+### Part 2: What you should see on the real routers
+
+In steps 3 to 7, the run ids and times vary. A normal run, with nothing to change, looks like this:
 
 ```
 $ python pipeline.py
@@ -424,7 +470,7 @@ $ echo $?
 0
 ```
 
-and for the gate:
+The gate run in step 4, where the data is broken on purpose, looks like this:
 
 ```
 $ python pipeline.py --apply
@@ -442,14 +488,14 @@ In the log, one skipped line looks like this:
 {"time": "2026-10-08T14:07:40+00:00", "run": "b21e07aa", "user": "expert", "stage": "plan", "command": "terraform plan -detailed-exitcode -no-color", "exit_code": null, "result": "SKIPPED"}
 ```
 
-Ask Terraform the one question the grader asks:
+Last, ask Terraform the one question the grader asks:
 
 ```
 terraform plan -detailed-exitcode
 echo $?
 ```
 
-`0` means no changes, `2` means changes are waiting, `1` means an error.
+`0` means no changes, `2` means changes are waiting, and `1` means an error.
 
 ## Put a router back
 
