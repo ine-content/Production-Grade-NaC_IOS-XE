@@ -362,6 +362,8 @@ The letters in front of a command are knobs. `V=1` makes the pretend `nac-valida
 
 Now run five cases, one at a time. Each one shows the command and what you should see.
 
+Here's how to read each command. `PATH=/tmp/fakebin:$PATH` makes the shell find the pretend tools first, for this one command only. Your real `pipeline.py` runs, but no router is touched. `python pipeline.py` runs the script. `echo "exit $?"` prints the script's exit code, so you can check it. The knobs you add in front (`V=1`, `P=2`, `A=1`) change what the pretend tools do.
+
 **Case 1: everything passes, no `--apply`.**
 
 ```
