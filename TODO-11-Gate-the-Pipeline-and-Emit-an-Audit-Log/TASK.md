@@ -66,7 +66,7 @@ Things to notice:
 
 ## Technical Requirements
 
-Create `pipeline.py` in this folder. It runs these four stages, in this order:
+`pipeline.py` is already in this folder, with blanks for you to fill in (see step 1). When it's finished, it runs these four stages, in this order:
 
 | Stage | Command | Runs when | Result |
 |-------|---------|-----------|--------|
@@ -149,8 +149,9 @@ When it finishes, run the check commands again and make sure the output looks ri
 Each step starts by saying where to run it. "On CWS" means a normal terminal on the lab machine (CWS), in this folder. "On R10" (or R11, R12) means that router's own command line (SSH or console). These labels are only directions. You don't type them anywhere.
 
 ```
-1. On CWS: Create pipeline.py. The record function is complete and you
-   copy it as it is. Replace each ... with your own value:
+1. On CWS: Open pipeline.py. It's already in this folder. Replace each
+   ... with your own value. The record function is complete, so leave it
+   as it is:
 
      #!/usr/bin/env python3
      # Run the NaC pipeline: validate, plan, apply (only when approved), verify.
@@ -216,6 +217,9 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
 
      if __name__ == "__main__":
          main()
+
+   Until you fill in the blanks, python pipeline.py fails with an error.
+   That's expected.
 
    What goes in each blank:
 

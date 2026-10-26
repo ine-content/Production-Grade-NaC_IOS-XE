@@ -1858,7 +1858,8 @@ HINTS[11] = (
     "this is the apply stage and it is not approved or there are no changes. A skipped stage still calls\n"
     "record, with None as the exit code. Plan is the one stage where exit code 2 is not a failure. If the\n"
     "audit.log check fails, run the pipeline for real as the steps describe: once with broken data, once\n"
-    "with --apply after making drift."
+    "with --apply after making drift. If python pipeline.py stops with an error that mentions ellipsis,\n"
+    "a ... blank is still in the file. Search pipeline.py for ... and replace every one."
 )
 SOLUTIONS[11] = """# pipeline.py
 #!/usr/bin/env python3
