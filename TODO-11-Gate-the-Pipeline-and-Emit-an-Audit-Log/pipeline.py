@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # Run the NaC pipeline: validate, plan, apply (only when approved), verify.
+# Every line marked FILL IN needs your answer. Replace each ... and leave the rest as it is.
 import json
 import os
 import subprocess
@@ -13,10 +14,10 @@ APPROVED = "--apply" in sys.argv[1:]
 
 # STAGE COMMANDS
 STAGES = [
-    ("validate", [...]),
-    ("plan", [...]),
-    ("apply", [...]),
-    ("verify", [...]),
+    ("validate", [...]),  # FILL IN: the nac-validate command, as a list of words
+    ("plan", [...]),  # FILL IN: the terraform plan command
+    ("apply", [...]),  # FILL IN: the terraform apply command
+    ("verify", [...]),  # FILL IN: the nac-test command
 ]
 
 
@@ -40,24 +41,24 @@ def main():
     changes_waiting = False
     for stage, command in STAGES:
         # SKIP CHECK
-        if ...:
+        if ...:  # FILL IN: true when this stage must be skipped
             record(stage, command, None, "SKIPPED")
             continue
         code = subprocess.run(command).returncode
         # CHANGES CHECK
-        if stage == "plan" and code == ...:
+        if stage == "plan" and code == ...:  # FILL IN: the plan's exit code for changes
             changes_waiting = True
-            result = "..."
+            result = "..."  # FILL IN: the result text for changes
         # PASS CHECK
-        elif code == ...:
-            result = "..."
+        elif code == ...:  # FILL IN: the exit code for a pass
+            result = "..."  # FILL IN: the result text for a pass
         # FAIL
         else:
-            result = "..."
+            result = "..."  # FILL IN: the result text for a failure
             failed = True
         record(stage, command, code, result)
     # EXIT CODE
-    sys.exit(...)
+    sys.exit(...)  # FILL IN: 1 if a stage failed, otherwise 0
 
 
 if __name__ == "__main__":
