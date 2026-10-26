@@ -109,6 +109,19 @@ Change the path if you put the course folder somewhere else.
 
 You can do each TODO on its own, so this one assumes the routers already have the work from TODO 06 to 08, plus RESTCONF, which you turned on by hand in TODO 10.
 
+**Fresh routers need a one-time setup first.** Terraform talks to the routers over NETCONF, and the tests talk to them over RESTCONF. Neither works until you turn them on, and you need a login with privilege 15. Enter this on each of R10, R11, and R12, with your own username and password:
+
+     configure terminal
+      username <name> privilege 15 secret <password>
+      netconf-yang
+      ip http secure-server
+      ip http authentication local
+      restconf
+     end
+     write memory
+
+You'll use that same username and password in a moment as `IOSXE_USERNAME` and `IOSXE_PASSWORD`. If you already did TODO 06 and TODO 10 on these routers, skip this block, because it's already there. Everything else (hostname, loopbacks, static routes, ACL, and OSPF) comes from the baseline apply below. You don't type any of it by hand.
+
 Here is how to check R10:
 
      show running-config | include ip http|restconf
@@ -127,7 +140,7 @@ Then run:
      terraform plan
      terraform apply
 
-The plan lists what the earlier TODOs configured. Read it and type yes. If RESTCONF is missing, turn it on afterward on R10, R11, and R12 with: configure terminal, then ip http secure-server, ip http authentication local, restconf, then end. Then run write memory on R10, R11, and R12 so they keep the config after a reload.
+The plan lists what the earlier TODOs configured. Read it and type yes. Then run write memory on R10, R11, and R12 so they keep the config after a reload.
 
 When it finishes, run the check commands again and make sure the output looks right.
 
