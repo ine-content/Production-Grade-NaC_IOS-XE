@@ -27,7 +27,7 @@ If a stage fails, the stages after it don't run. Bad data never reaches a router
 
 The plan stage needs one careful rule. `terraform plan -detailed-exitcode` exits `2` when there are changes to make. That isn't a failure, because it's the answer you wanted. The pipeline records it as `CHANGES` and carries on. Only an exit code of `1`, or anything else unexpected, counts as a failure.
 
-The second half is the audit log. Every stage, including the ones that were skipped, is written to `audit.log` as one line of JSON: when, who, which run, which stage, what command, what exit code, and what the result was. Writing the skipped stages down matters. Later, someone asking "why didn't the change go out?" can read the log and see that validation failed and nothing after it ran.
+The pipeline also keeps an audit log. Every stage, including the ones that were skipped, is written to `audit.log` as one line of JSON: when, who, which run, which stage, what command, what exit code, and what the result was. Writing the skipped stages down matters. Later, someone asking "why didn't the change go out?" can read the log and see that validation failed and nothing after it ran.
 
 ## Worked Example
 
@@ -68,14 +68,14 @@ Things to notice:
 
 Create `pipeline.py` in this folder. It runs these four stages, in this order:
 
-| Stage | Command | Result |
-|-------|---------|--------|
-| `validate` | `nac-validate data -s .schema.yaml -r rules` | exit 0 is `PASS`, anything else is `FAIL` |
-| `plan` | `terraform plan -detailed-exitcode -no-color` | 0 is `PASS`, 2 is `CHANGES`, anything else is `FAIL` |
-| `apply` | `terraform apply -auto-approve -no-color` | runs only with `--apply` and only after `CHANGES`. 0 is `PASS`, anything else is `FAIL`. Otherwise `SKIPPED` |
-| `verify` | `nac-test -d data -t tests -o test-results` | exit 0 is `PASS`, anything else is `FAIL` |
+| Stage | Command | Runs when | Result |
+|-------|---------|-----------|--------|
+| `validate` | `nac-validate data -s .schema.yaml -r rules` | no earlier stage failed | exit 0 is `PASS`, anything else is `FAIL` |
+| `plan` | `terraform plan -detailed-exitcode -no-color` | no earlier stage failed | 0 is `PASS`, 2 is `CHANGES`, anything else is `FAIL` |
+| `apply` | `terraform apply -auto-approve -no-color` | you used `--apply`, the plan said `CHANGES`, and no earlier stage failed | 0 is `PASS`, anything else is `FAIL` |
+| `verify` | `nac-test -d data -t tests -o test-results` | no earlier stage failed | exit 0 is `PASS`, anything else is `FAIL` |
 
-After any `FAIL`, every stage still to come is `SKIPPED`. The script exits `1` if any stage failed and `0` otherwise.
+A stage that doesn't run is `SKIPPED`. After any `FAIL`, every stage still to come is `SKIPPED`. The script exits `1` if any stage failed and `0` otherwise.
 
 Every stage adds one line to `audit.log`. The file is only ever appended to, never overwritten. Each line is a JSON object with exactly these keys:
 
@@ -152,6 +152,7 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
      RUN = uuid.uuid4().hex[:8]
      APPROVED = "--apply" in sys.argv[1:]
 
+     # STAGE COMMANDS
      STAGES = [
          ("validate", [...]),
          ("plan", [...]),
@@ -179,31 +180,70 @@ Each step starts by saying where to run it. "On CWS" means a normal terminal on 
          failed = False
          changes_waiting = False
          for stage, command in STAGES:
+             # SKIP CHECK
              if ...:
                  record(stage, command, None, "SKIPPED")
                  continue
              code = subprocess.run(command).returncode
+             # CHANGES CHECK
              if stage == "plan" and code == ...:
                  changes_waiting = True
                  result = "..."
+             # PASS CHECK
              elif code == ...:
                  result = "..."
+             # FAIL
              else:
                  result = "..."
                  failed = True
              record(stage, command, code, result)
+         # EXIT CODE
          sys.exit(...)
 
 
      if __name__ == "__main__":
          main()
 
-   - Each command in STAGES is a list of words, as in the Worked
-     Example. Use the commands from the Technical Requirements table.
-   - The condition at the top of the loop is true when the pipeline has
-     already failed, or when this is the apply stage and it is not
-     approved or there are no changes waiting. Both cases skip the stage.
-   - The exit code of the script is 1 after a failure and 0 otherwise.
+   What goes in each blank:
+
+     STAGE COMMANDS       One list of words for each stage, from the
+                          Command column of the Technical Requirements
+                          table, as in the Worked Example. For example,
+                          the plan is ["terraform", "plan",
+                          "-detailed-exitcode", "-no-color"]. Split the
+                          command at every space, and put each word in
+                          quotes. Each stage gets its own list.
+
+     SKIP CHECK           A condition that is true when the stage should
+                          be skipped. It has two parts, joined with "or":
+                            1. A stage already failed. The variable
+                               failed is True.
+                            2. This is the apply stage, and it shouldn't
+                               run. It shouldn't run when you didn't use
+                               --apply, or the plan found no changes.
+                          For part 2, APPROVED and changes_waiting must
+                          both be True for apply to run. So part 2 is:
+                          stage == "apply" and not (APPROVED and
+                          changes_waiting)
+
+     CHANGES CHECK
+       code == ...        2, the plan's exit code for "changes waiting"
+       result = "..."     CHANGES
+
+     PASS CHECK
+       code == ...        0
+       result = "..."     PASS
+
+     FAIL
+       result = "..."     FAIL
+
+     EXIT CODE
+       sys.exit(...)      1 if failed is True, otherwise 0. In Python:
+                          1 if failed else 0
+
+   You may add print lines of your own, for example a note that the
+   pipeline stopped. The grader only checks the stage lines, the exit
+   code, and the log.
 
 2. On R10, R11, and R12: Take a snapshot on each router, then check it:
 
