@@ -1838,11 +1838,11 @@ AUDIT_FIELDS = {"time", "run", "user", "stage", "command", "exit_code", "result"
 STAGE_ORDER = ["validate", "plan", "apply", "verify"]
 
 PROBLEMS[11] = (
-    "One of these is not right yet. pipeline.py must run four stages in order, validate, plan, apply\n"
-    "and verify, and stop at the first failure. Apply may only run when --apply was given and the plan\n"
-    "found changes. Every stage, including skipped ones, must be written to audit.log as one JSON line\n"
-    "with time, run, user, stage, command, exit_code and result. And audit.log must show that you ran\n"
-    "it for real: a run stopped by validation, and a run that applied a change."
+    "One of these is not right yet. The provided pipeline.py must still run four stages in order, validate,\n"
+    "plan, apply and verify, and stop at the first failure. Apply may only run when --apply was given and the\n"
+    "plan found changes. Every stage, including skipped ones, must be written to audit.log as one JSON line\n"
+    "with time, run, user, stage, command, exit_code and result. And audit.log must show that you ran it for\n"
+    "real: a run stopped by validation (step 5), and a run that applied a change (step 8)."
 )
 EXPECTED[11] = (
     "validate -> nac-validate data -s .schema.yaml -r rules; fail stops everything.\n"
@@ -1851,79 +1851,43 @@ EXPECTED[11] = (
     "verify -> nac-test -d data -t tests -o test-results; 0 PASS, otherwise FAIL.\n"
     "After a failure every later stage is logged SKIPPED with exit_code null. Exit 1 on failure, else 0.\n"
     "audit.log is appended to, one JSON object per line, no credentials in it.\n"
+    "pipeline.py is provided and finished: leave it as it is.\n"
     "terraform plan -detailed-exitcode exits 0."
 )
 HINTS[11] = (
-    "Loop over STAGES. At the top of the loop, decide whether to skip: the pipeline already failed, or\n"
-    "this is the apply stage and it is not approved or there are no changes. A skipped stage still calls\n"
-    "record, with None as the exit code. Plan is the one stage where exit code 2 is not a failure. If the\n"
-    "audit.log check fails, run the pipeline for real as the steps describe: once with broken data, once\n"
-    "with --apply after making drift. If python pipeline.py stops with an error that mentions ellipsis,\n"
-    "a ... blank is still in the file. Search pipeline.py for ... and replace every one."
+    "pipeline.py is provided, so the usual cause is audit.log. It must hold two real runs. Run 1 is stopped by\n"
+    "validation: step 5 breaks data/ospf.nac.yaml, runs python pipeline.py --apply, and puts the file back.\n"
+    "Run 2 applies a change: steps 6 to 8 change R11's Loopback10 description by hand, then run\n"
+    "python pipeline.py --apply. Runs in /tmp with pretend tools don't count, and the log must be in this\n"
+    "folder. If terraform plan isn't clean at the end, a router still differs from the data: check that\n"
+    "R11's Loopback10 description is BRANCH-LAN. If you edited pipeline.py, restore it from the original\n"
+    "TODO-11 folder."
 )
-SOLUTIONS[11] = """# pipeline.py
-#!/usr/bin/env python3
-# Run the NaC pipeline: validate, plan, apply (only when approved), verify. Write an audit log.
-import json
-import os
-import subprocess
-import sys
-import uuid
-from datetime import datetime, timezone
+SOLUTIONS[11] = """# Nothing to write in this TODO. pipeline.py is provided and finished.
+# The grader fails when audit.log doesn't hold two real runs. Do steps 5 and 8 in this folder.
 
-LOG = "audit.log"
-RUN = uuid.uuid4().hex[:8]
-APPROVED = "--apply" in sys.argv[1:]
+# Step 5, on CWS: the gate run. validate fails, so the other three stages are skipped.
+sed -i.bak 's/area: 0/area: zero/' data/ospf.nac.yaml
+python pipeline.py --apply
+mv data/ospf.nac.yaml.bak data/ospf.nac.yaml
 
-STAGES = [
-    ("validate", ["nac-validate", "data", "-s", ".schema.yaml", "-r", "rules"]),
-    ("plan", ["terraform", "plan", "-detailed-exitcode", "-no-color"]),
-    ("apply", ["terraform", "apply", "-auto-approve", "-no-color"]),
-    ("verify", ["nac-test", "-d", "data", "-t", "tests", "-o", "test-results"]),
-]
+# Step 6, on R11: make drift for the pipeline to push
+configure terminal
+ interface Loopback10
+  description MANUAL-CHANGE
+end
 
+# Step 8, on CWS: the approved run. The plan finds changes and apply pushes them.
+python pipeline.py --apply
 
-def record(stage, command, exit_code, result):
-    entry = {
-        "time": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "run": RUN,
-        "user": os.environ.get("USER", "unknown"),
-        "stage": stage,
-        "command": " ".join(command),
-        "exit_code": exit_code,
-        "result": result,
-    }
-    with open(LOG, "a", encoding="utf-8") as log:
-        log.write(json.dumps(entry) + "\n")
-    print(f"{stage:<9} {result}")
+# Then on R11: save the config
+write memory
 
+# Check the log, then run the grader again
+tail -n 12 audit.log
+python grading.py
 
-def main():
-    failed = False
-    changes_waiting = False
-    for stage, command in STAGES:
-        if failed or (stage == "apply" and not (APPROVED and changes_waiting)):
-            record(stage, command, None, "SKIPPED")
-            continue
-        code = subprocess.run(command).returncode
-        if stage == "plan" and code == 2:
-            changes_waiting = True
-            result = "CHANGES"
-        elif code == 0:
-            result = "PASS"
-        else:
-            result = "FAIL"
-            failed = True
-        record(stage, command, code, result)
-    if failed:
-        print("Pipeline stopped. See audit.log.")
-    elif changes_waiting and not APPROVED:
-        print("Changes are waiting. Run again with --apply to push them.")
-    sys.exit(1 if failed else 0)
-
-
-if __name__ == "__main__":
-    main()
+# If you edited pipeline.py, restore it from the original TODO-11 folder.
 """
 
 
@@ -2315,7 +2279,7 @@ def feedback(failed):
 
     if answer == "s":
         console.print()
-        lexer = {4: "python", 5: "terraform", 6: "terraform", 7: "text", 8: "text", 9: "bash", 10: "bash", 11: "python"}.get(failed, "yaml")
+        lexer = {4: "python", 5: "terraform", 6: "terraform", 7: "text", 8: "text", 9: "bash", 10: "bash", 11: "bash"}.get(failed, "yaml")
         syntax = Syntax(SOLUTIONS[failed], lexer, theme="ansi_dark", line_numbers=False, word_wrap=True)
         console.print(Panel(syntax, title="Solution", title_align="left", border_style=GREEN, padding=(0, 1)))
         console.print()
