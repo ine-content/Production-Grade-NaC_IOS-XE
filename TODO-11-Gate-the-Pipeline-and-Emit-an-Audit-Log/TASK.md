@@ -31,44 +31,9 @@ The plan stage needs one careful rule. `terraform plan -detailed-exitcode` exits
 
 The pipeline also keeps an audit log. Every stage, including the ones that were skipped, is written to `audit.log` as one line of JSON: when, who, which run, which stage, what command, what exit code, and what the result was. Writing the skipped stages down matters. Later, someone asking "why didn't the change go out?" can read the log and see that validation failed and nothing after it ran.
 
-## Worked Example
+## What pipeline.py Does
 
-Here's a made-up pipeline with three steps, where the second one fails. It shows the gate and the log line without any of your tools:
-
-```python
-import json
-import subprocess
-
-steps = [("lint", ["true"]), ("build", ["false"]), ("ship", ["true"])]
-failed = False
-for name, command in steps:
-    if failed:
-        print(json.dumps({"step": name, "result": "SKIPPED"}))
-        continue
-    code = subprocess.run(command).returncode
-    if code != 0:
-        failed = True
-    print(json.dumps({"step": name, "result": "FAIL" if code else "PASS"}))
-```
-
-`true` and `false` are shell commands that do nothing and exit with 0 and 1. The output is:
-
-```
-{"step": "lint", "result": "PASS"}
-{"step": "build", "result": "FAIL"}
-{"step": "ship", "result": "SKIPPED"}
-```
-
-Things to notice:
-
-- `failed` is set once and checked at the top of every pass of the loop. That one flag is the whole gate.
-- A skipped step still prints a line. It's the same loop, so nothing is forgotten.
-- `subprocess.run(command)` lets the command print to your terminal as usual, and `.returncode` gives you the exit code.
-- One JSON object on one line is easy to add to a file, easy to search with `grep`, and easy for another program to read.
-
-## Technical Requirements
-
-`pipeline.py` is already in this folder, and it's finished. You don't edit it. It runs these four stages, in this order:
+`pipeline.py` is already in this folder, and it's finished. You don't write or edit any of it. It runs four stages, in this order:
 
 | Stage | Command | Runs when | Result |
 |-------|---------|-----------|--------|
@@ -79,17 +44,19 @@ Things to notice:
 
 A stage that doesn't run is `SKIPPED`. After any `FAIL`, every stage still to come is `SKIPPED`. The script exits `1` if any stage failed and `0` otherwise.
 
+### The audit log
+
 Every stage adds one line to `audit.log`. The file is only ever appended to, never overwritten. Each line is a JSON object with exactly these keys:
 
 ```json
 {"time": "2026-10-08T14:03:11+00:00", "run": "3fa9c1d2", "user": "expert", "stage": "plan", "command": "terraform plan -detailed-exitcode -no-color", "exit_code": 2, "result": "CHANGES"}
 ```
 
-`time` is UTC. `run` is the same for all four lines of one run and different between runs. `exit_code` is `null` for a skipped stage. Passwords and other login details must never reach the log or the script. The tools read the login from the environment, as before.
+`time` is UTC. `run` is the same for all four lines of one run and different between runs. `exit_code` is `null` for a skipped stage. Passwords and other login details never reach the log or the script. The tools read the login from the environment, as before.
 
-## The Provided pipeline.py
+### Where each part is in the file
 
-The script is already in this folder, and it's finished. You don't write or edit any of it. Open it and read the comments. Here's a map of the parts:
+Open `pipeline.py` and read the comments. Here's a map of the parts:
 
 | Part of the file | What it does |
 |------------------|--------------|
@@ -154,99 +121,28 @@ When it finishes, run the check commands again and make sure the output looks ri
 
 ## Steps
 
-Each step starts by saying where to run it. "On CWS" means a normal terminal on the lab machine (CWS), in this folder. "On R10" (or R11, R12) means that router's own command line (SSH or console). These labels are only directions. You don't type them anywhere. Steps 5 and 8 are the important ones for grading, because they write the two real runs to `audit.log`.
+Each step starts by saying where to run it. "On CWS" means a normal terminal on the lab machine (CWS), in this folder. "On R10" (or R11, R12) means that router's own command line (SSH or console). These labels are only directions. You don't type them anywhere.
+
+Steps 5 and 8 are the important ones for grading, because they write the two real runs to `audit.log`.
+
+### Step 1: On CWS, read pipeline.py
+
+Open `pipeline.py` in your editor and read it. It's already in this folder, and it's finished, so you don't change anything. The comments explain each part, and the map above shows where things are. Find the SKIP CHECK, the CHANGES CHECK, and the EXIT CODE.
+
+### Step 2: On R10, R11, and R12, take a snapshot
+
+Take a snapshot on each router, then check it:
 
 ```
-1. On CWS: Open pipeline.py in your editor and read it. It's already in
-   this folder, and it's finished, so you don't change anything. The
-   comments explain each part, and The Provided pipeline.py section
-   above gives you a map. Find the SKIP CHECK, the CHANGES CHECK, and
-   the EXIT CODE.
-
-2. On R10, R11, and R12: Take a snapshot on each router, then check it:
-
-     copy running-config flash:before-todo11.cfg
-     dir flash:before-todo11.cfg
-
-   Press Enter to accept the file name. Use bootflash: if flash: isn't
-   accepted. The listing must show a size above zero.
-
-3. On CWS: Test the script with pretend tools. Do Part 1 of Test It
-   Yourself, below. It takes about five minutes and doesn't touch a
-   router. All five cases must print exactly what Part 1 shows.
-
-4. On CWS: A normal run, with nothing to change:
-
-     python pipeline.py
-     echo $?
-
-   Expected output is in Part 2 of Test It Yourself below. Every stage
-   but apply should be PASS, and apply SKIPPED. If plan says CHANGES
-   here, something on a router differs from your data. Run terraform
-   plan to see what, fix that first, and run again.
-
-5. On CWS: The gate. Break the data so validation fails, ask for an apply
-   anyway, and see what stops:
-
-     sed -i.bak 's/area: 0/area: zero/' data/ospf.nac.yaml
-     python pipeline.py --apply
-     echo $?
-     mv data/ospf.nac.yaml.bak data/ospf.nac.yaml
-
-   validate must say FAIL, the three stages after it must say SKIPPED,
-   and the exit code must be 1. Nothing was sent to a router, even with
-   --apply. This run is the first of the two real runs the grader looks
-   for in audit.log. Make sure the mv line ran, so your data is back to
-   normal.
-
-6. On R11: Make a change the pipeline has to push. Change the
-   description of Loopback10 by hand, as in TODO 09:
-
-     configure terminal
-      interface Loopback10
-       description MANUAL-CHANGE
-     end
-
-7. On CWS: Run the pipeline without approval:
-
-     python pipeline.py
-
-   plan must say CHANGES, apply must say SKIPPED, and verify must say
-   PASS. The router is still different from the data, because you didn't
-   approve anything.
-
-8. On CWS: Now approve it:
-
-     python pipeline.py --apply
-
-   validate PASS, plan CHANGES, apply PASS, verify PASS. This run is the
-   second of the two real runs the grader looks for in audit.log. Check
-   the router:
-
-     On R11: show running-config interface Loopback10 | include description
-
-   It must say BRANCH-LAN again.
-
-   Terraform only changes the running configuration, so a reload would
-   undo it. On R11: Save it to the startup configuration:
-
-     write memory
-
-9. On CWS: Look at what the log says about those runs:
-
-     tail -n 12 audit.log
-
-   You should see the lines of the last three runs, each with its own
-   run id.
-
-10. On CWS: Run: python grading.py
+copy running-config flash:before-todo11.cfg
+dir flash:before-todo11.cfg
 ```
 
-## Test It Yourself (without the grader)
+Press Enter to accept the file name. Use `bootflash:` if `flash:` isn't accepted. The listing must show a size above zero.
 
-### Part 1: Try it with pretend tools
+### Step 3: On CWS, test the script with pretend tools
 
-This part tests the provided script's logic without touching a router. You make pretend versions of `nac-validate`, `terraform`, and `nac-test`. Each pretend tool just exits with a code you choose.
+This step tests the script's logic without touching a router. You make pretend versions of `nac-validate`, `terraform`, and `nac-test`. Each pretend tool just exits with a code you choose.
 
 Set them up once. Everything happens in a scratch folder, so your real `audit.log` isn't touched:
 
@@ -364,46 +260,129 @@ cd ~/Production-Grade-NaC_IOS-XE/TODO-11-Gate-the-Pipeline-and-Emit-an-Audit-Log
 rm -r /tmp/fakebin /tmp/pipe-test
 ```
 
-### Part 2: What you should see on the real routers
+### Step 4: On CWS, do a normal run
 
-In steps 4 to 8, the run ids and times vary. A normal run, with nothing to change, looks like this:
+A normal run, with nothing to change:
 
 ```
-$ python pipeline.py
+python pipeline.py
+echo $?
+```
+
+Every stage but apply should be `PASS`, and apply `SKIPPED`. The run ids and times in the log vary:
+
+```
 validate  PASS
 plan      PASS
 apply     SKIPPED
 verify    PASS
-$ echo $?
 0
 ```
 
-The gate run in step 5, where the data is broken on purpose, looks like this:
+If plan says `CHANGES` here, something on a router differs from your data. Run `terraform plan` to see what, fix that first, and run again.
+
+### Step 5: On CWS, run the gate
+
+Break the data so validation fails, ask for an apply anyway, and see what stops:
 
 ```
-$ python pipeline.py --apply
+sed -i.bak 's/area: 0/area: zero/' data/ospf.nac.yaml
+python pipeline.py --apply
+echo $?
+mv data/ospf.nac.yaml.bak data/ospf.nac.yaml
+```
+
+You should see:
+
+```
 validate  FAIL
 plan      SKIPPED
 apply     SKIPPED
 verify    SKIPPED
-$ echo $?
 1
 ```
 
-In the log, one skipped line looks like this:
+Nothing was sent to a router, even with `--apply`. This run is the first of the two real runs the grader looks for in `audit.log`. Make sure the `mv` line ran, so your data is back to normal.
+
+### Step 6: On R11, make a change the pipeline has to push
+
+Change the description of Loopback10 by hand, as in TODO 09:
+
+```
+configure terminal
+ interface Loopback10
+  description MANUAL-CHANGE
+end
+```
+
+### Step 7: On CWS, run the pipeline without approval
+
+```
+python pipeline.py
+```
+
+```
+validate  PASS
+plan      CHANGES
+apply     SKIPPED
+verify    PASS
+```
+
+The router is still different from the data, because you didn't approve anything.
+
+### Step 8: On CWS, approve it
+
+```
+python pipeline.py --apply
+```
+
+```
+validate  PASS
+plan      CHANGES
+apply     PASS
+verify    PASS
+```
+
+This run is the second of the two real runs the grader looks for in `audit.log`. Now check R11:
+
+```
+show running-config interface Loopback10 | include description
+```
+
+It must say `BRANCH-LAN` again. Terraform only changes the running configuration, so a reload would undo it. On R11, save it to the startup configuration:
+
+```
+write memory
+```
+
+### Step 9: On CWS, check the log and the plan
+
+Look at what the log says about those runs:
+
+```
+tail -n 12 audit.log
+```
+
+You should see the lines of the last three runs, each with its own run id. A skipped line looks like this:
 
 ```
 {"time": "2026-10-08T14:07:40+00:00", "run": "b21e07aa", "user": "expert", "stage": "plan", "command": "terraform plan -detailed-exitcode -no-color", "exit_code": null, "result": "SKIPPED"}
 ```
 
-Last, ask Terraform the one question the grader asks:
+Then ask Terraform the one question the grader asks:
 
 ```
 terraform plan -detailed-exitcode
 echo $?
 ```
 
-`0` means no changes, `2` means changes are waiting, and `1` means an error.
+`0` means no changes, `2` means changes are waiting, and `1` means an error. You want `0`.
+
+### Step 10: On CWS, run the grader
+
+```
+python grading.py
+```
 
 ## Put a router back
 
